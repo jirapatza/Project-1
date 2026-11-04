@@ -45,3 +45,26 @@ once, conflicting or missing numbers are skipped, and the results show the count
 tested and the count matching the recorded two-digit number. These sample rules
 are for retrospective evaluation. The upstream snapshot may omit draws, so
 “previous draw” refers to the previous date present in that snapshot.
+
+## Laos development snapshot pilot (v1.0.0)
+
+Run from the project directory with Node 20 or newer. Use a verified future draw
+date in Thailand, and keep the result file in persistent private storage:
+
+    npm run snapshot -- create lao-history-63.json YYYY-MM-DD snapshot.json
+    npm run snapshot -- check snapshot.json results.json
+
+The bundled 63 records cover 2026-08-07 through 2026-11-04. Refresh the input
+with verified results before using it for a new draw. Input is an array of
+objects with date (YYYY-MM-DD), bottom2 (two-character string), and top3
+(three-character string). Preserve leading zeros. The pilot ranks two
+individual running digits and up to ten exact three-digit results. These
+rankings are experimental. Run the command before the target day begins in
+Thailand. The command rejects overwriting an existing snapshot file.
+
+This manual tool is separate from the hosted web server and does not schedule
+jobs. Local timestamps are not independently attested.
+
+Historical sources:
+- https://xn--22c9aba6ftf0bc8d.com/สถิติหวยลาวพัฒนา (first 60 records)
+- https://lottoth.co/lottery/laosdevelops/history (2–4 November cross-reference)
