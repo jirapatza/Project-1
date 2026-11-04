@@ -1,0 +1,2 @@
+const form=document.querySelector('#login');const error=document.querySelector('#error');
+form.addEventListener('submit',async event=>{event.preventDefault();error.textContent='กำลังตรวจสอบ...';try{const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.querySelector('#password').value})});const data=await response.json();if(!response.ok)throw new Error(data.error||'เข้าสู่ระบบไม่สำเร็จ');location.href='/';}catch(e){error.textContent=e.message;}});
