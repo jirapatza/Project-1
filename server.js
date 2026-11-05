@@ -142,7 +142,7 @@ const server = http.createServer(async (req, res) => {
       incidentId,
       method: req.method,
       path: pathname,
-      message: e instanceof Error ? e.message : String(e),
+      errorType: e instanceof Error ? e.name : 'UnknownError',
     }));
     if (!res.headersSent) json(res, 500, { error: 'เกิดข้อผิดพลาด', incidentId });
     else res.end();
