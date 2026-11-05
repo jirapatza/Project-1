@@ -23,7 +23,7 @@ The server reads these existing Bombim00 files only:
 - `main/data/all_lotteries.json`
 - `runtime-live/lottery_previous_results.json`
 
-The upstream requests are read-only and cached for 60 seconds. The project does not scrape, update, or duplicate source records. History name matching is conservative; if a result cannot be matched reliably it is not attributed to a lottery. The 54-entry catalog is authoritative.
+The upstream requests are read-only and cached for 60 seconds. If an upstream request fails, the dashboard labels and uses a bundled extract from Bombim00 commit e836193, with results through 2026-11-02. The extract contains only fields needed by the dashboard. History name matching is conservative; if a result cannot be matched reliably it is not attributed to a lottery. The 54-entry catalog is authoritative.
 
 ## Tests
 
@@ -37,14 +37,14 @@ Create a **new private GitHub repository** (not a fork that will sync writes to 
 
 The initial release provides historical digit frequency, tens/units distribution, observed gaps, a comparison of available records in two windows, and a historical results table. These are descriptive only, not betting recommendations. The data feed is a finite history snapshot; the site does not claim it contains every past draw. Source matching may require validation for some catalog entries before claiming full per-lottery coverage.
 
-## Formula lab
+## Dashboard
 
-Select a lottery, a built-in versioned rule and 10, 20, 30 or all available target draws.
-Each target date uses only earlier records for the same lottery. Duplicate dates count
-once, conflicting or missing numbers are skipped, and the results show the count
-tested and the count matching the recorded two-digit number. These sample rules
-are for retrospective evaluation. The upstream snapshot may omit draws, so
-“previous draw” refers to the previous date present in that snapshot.
+- หน้าแรก shows the lottery count, recent results, recent digit frequencies and the latest formula and publisher checks.
+- คำนวณรายหวย offers one selection per lottery. The available v1.0.0 test covers Laos Development only. It checks running digits and up to ten exact three-digit candidates against 30 target draws, using 30 earlier draws each time.
+- สถิติย้อนหลัง filters the Bombim00 archive by lottery, end date, and 10, 20 or 30 draws. Conflicting rows are withheld.
+- เลขดังรายสำนัก contains 17 manually reviewed entries from seven named publishers for four lotteries on 3–4 November 2026. It compares exact picks within the same lottery and date and links to the evidence. Running digits without a stated outcome category are displayed without scoring. Source collection times are labels, not independently certified publication timestamps. New picks are not collected automatically.
+
+The optional `POSTHOG_PROJECT_TOKEN` enables aggregate menu-selection events to the US PostHog ingestion host. No lottery selections, draw dates or user identities are attached to these events. Leave the variable empty to keep events disabled.
 
 ## Laos development snapshot pilot (v1.0.0)
 
