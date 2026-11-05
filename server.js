@@ -148,4 +148,8 @@ const server = http.createServer(async (req, res) => {
     else res.end();
   }
 });
-server.listen(PORT,HOST,()=>console.log(`Project 1 listening on http://${HOST}:${PORT}`));
+server.listen(PORT, HOST, () => {
+  const address = server.address();
+  const listeningPort = typeof address === 'object' && address ? address.port : PORT;
+  console.log(`Project 1 listening on http://${HOST}:${listeningPort}`);
+});
