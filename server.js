@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { calculate, version } from './lao-snapshot.mjs';
+import { archivedResults, publishers } from './publishers.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -40,7 +42,7 @@ async function body(req) {
 async function upstream(key) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.time < 60000) return hit.data;
-  const response = await fetch(sourceUrls[key], {signal:AbortSignal.timeout(15000),headers:{Accept:'application/json'}});
+  const response = await fetch(sourceUrls[key], {signal:AbortSignal.timeout(5000),headers:{Accept:'application/json'}});
   if (!response.ok) throw new Error(`Bombim00 HTTP ${response.status}`);
   const data = await response.json();
   if (!Array.isArray(data)) throw new Error('Unexpected upstream response');
@@ -80,8 +82,53 @@ const server = http.createServer(async (req, res) => {
         if (pathname === '/style.css' || pathname === '/app.js') { /* login page needs styles and script */ }
       }
     }
+    if (pathname === '/api/publishers' && req.method === 'GET') {
+      const lao = JSON.parse(await readFile(path.join(root, 'lao-history-63.json'), 'utf8'));
+      const dates = new Set(publishers.filter(row => row.lottery === 'lao_patthana').map(row => row.date));
+      const results = [...archivedResults, ...lao.filter(row => dates.has(row.date)).map(row => ({
+        ...row, lottery: 'lao_patthana', source: 'https://lottoth.co/lottery/laosdevelops/history',
+      }))];
+      return json(res, 200, { publishers, results });
+    }
+    if (pathname === '/api/usage' && req.method === 'POST') {
+      if (!process.env.POSTHOG_PROJECT_TOKEN) return json(res, 200, { enabled: false });
+      if (req.headers.origin !== 'https://' + req.headers.host &&
+          req.headers.origin !== 'http://' + req.headers.host) return json(res, 403, {});
+      const { menu } = await body(req);
+      if (!['home', 'calculate', 'stats', 'publishers'].includes(menu)) return json(res, 400, {});
+      const response = await fetch('https://us.i.posthog.com/capture/', {
+        method: 'POST', signal: AbortSignal.timeout(2500),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: process.env.POSTHOG_PROJECT_TOKEN,
+          event: 'project1_menu_selected',
+          properties: { distinct_id: 'project1_aggregate', menu, $process_person_profile: false, $geoip_disable: true },
+        }),
+      });
+      return json(res, response.ok ? 200 : 502, { enabled: true });
+    }
+    if (pathname === '/api/lao-backtest' && req.method === 'GET') {
+      const rows = JSON.parse(await readFile(path.join(root, 'lao-history-63.json'), 'utf8'));
+      const results = rows.slice(-30).map((draw, offset) => {
+        const index = rows.length - 30 + offset;
+        const history = rows.slice(index - 30, index);
+        const { run, exact3 } = calculate(history);
+        return { ...draw, run, exact3, runHit: run.some(n => draw.bottom2.includes(n)),
+          exactRank: exact3.indexOf(draw.top3) + 1 };
+      });
+      return json(res, 200, { version, results: results.reverse() });
+    }
     if ((pathname === '/api/catalog' || pathname === '/api/history') && req.method === 'GET') {
-      return json(res,200,await upstream(pathname === '/api/catalog' ? 'catalog' : 'history'));
+      const key = pathname === '/api/catalog' ? 'catalog' : 'history';
+      let data;
+      try {
+        data = await upstream(key);
+        res.setHeader('X-Project1-Data', 'live');
+      } catch {
+        data = cache.get(key)?.data ?? JSON.parse(await readFile(path.join(root, `bombim00-${key}.json`), 'utf8'));
+        res.setHeader('X-Project1-Data', 'archive');
+      }
+      return json(res, 200, data);
     }
     const name = files.get(pathname) || (pathname === '/login.js' ? 'login.js' : null);
     if (!name) return json(res,404,{error:'Not found'});
