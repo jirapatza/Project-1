@@ -1,0 +1,218 @@
+[
+  {
+    "id": "lao_extra",
+    "name": "ลาว EXTRA"
+  },
+  {
+    "id": "nikkei_vip_morning",
+    "name": "นิเคอิเช้า VIP"
+  },
+  {
+    "id": "hanoi_asean",
+    "name": "ฮานอยอาเซียน"
+  },
+  {
+    "id": "nikkei_morning",
+    "name": "นิเคอิรอบเช้า"
+  },
+  {
+    "id": "china_vip_morning",
+    "name": "จีนเช้า VIP"
+  },
+  {
+    "id": "china_morning",
+    "name": "จีนรอบเช้า"
+  },
+  {
+    "id": "lao_tv",
+    "name": "ลาว TV"
+  },
+  {
+    "id": "hangseng_vip_morning",
+    "name": "ฮั่งเส็งเช้า VIP"
+  },
+  {
+    "id": "hangseng_morning",
+    "name": "ฮั่งเส็งรอบเช้า"
+  },
+  {
+    "id": "hanoi_hd",
+    "name": "ฮานอย HD"
+  },
+  {
+    "id": "taiwan_vip",
+    "name": "ไต้หวัน VIP"
+  },
+  {
+    "id": "hanoi_star",
+    "name": "ฮานอย STAR"
+  },
+  {
+    "id": "taiwan",
+    "name": "ไต้หวัน"
+  },
+  {
+    "id": "korea_vip",
+    "name": "เกาหลี VIP"
+  },
+  {
+    "id": "korea",
+    "name": "เกาหลี"
+  },
+  {
+    "id": "nikkei_afternoon",
+    "name": "นิเคอิรอบบ่าย"
+  },
+  {
+    "id": "nikkei_vip_afternoon",
+    "name": "นิเคอิบ่าย VIP"
+  },
+  {
+    "id": "lao_hd",
+    "name": "ลาว HD"
+  },
+  {
+    "id": "china_afternoon",
+    "name": "จีนรอบบ่าย"
+  },
+  {
+    "id": "hanoi_tv",
+    "name": "ฮานอย TV"
+  },
+  {
+    "id": "china_vip_afternoon",
+    "name": "จีนบ่าย VIP"
+  },
+  {
+    "id": "hangseng_afternoon",
+    "name": "ฮั่งเส็งรอบบ่าย"
+  },
+  {
+    "id": "hangseng_vip_afternoon",
+    "name": "ฮั่งเส็งบ่าย VIP"
+  },
+  {
+    "id": "lao_star",
+    "name": "ลาว STAR"
+  },
+  {
+    "id": "singapore",
+    "name": "สิงคโปร์"
+  },
+  {
+    "id": "thai_stock_evening",
+    "name": "ไทยเย็น"
+  },
+  {
+    "id": "hanoi_redcross",
+    "name": "ฮานอยกาชาด"
+  },
+  {
+    "id": "india",
+    "name": "อินเดีย"
+  },
+  {
+    "id": "singapore_vip",
+    "name": "สิงคโปร์ VIP"
+  },
+  {
+    "id": "hanoi_samakki",
+    "name": "ฮานอยสามัคคี"
+  },
+  {
+    "id": "hanoi_special",
+    "name": "ฮานอยพิเศษ"
+  },
+  {
+    "id": "hanoi_regular",
+    "name": "ฮานอยปกติ"
+  },
+  {
+    "id": "hanoi_vip",
+    "name": "ฮานอย VIP"
+  },
+  {
+    "id": "hanoi_patthana",
+    "name": "ฮานอยพัฒนา"
+  },
+  {
+    "id": "lao_patthana",
+    "name": "ลาวพัฒนา"
+  },
+  {
+    "id": "lao_samakki",
+    "name": "ลาวสามัคคี"
+  },
+  {
+    "id": "lao_asean",
+    "name": "ลาวอาเซียน"
+  },
+  {
+    "id": "lao_vip",
+    "name": "ลาว VIP"
+  },
+  {
+    "id": "lao_samakki_vip",
+    "name": "ลาวสามัคคี VIP"
+  },
+  {
+    "id": "england_vip",
+    "name": "อังกฤษ VIP"
+  },
+  {
+    "id": "lao_star_vip",
+    "name": "ลาว STAR VIP"
+  },
+  {
+    "id": "hanoi_extra",
+    "name": "ฮานอย EXTRA"
+  },
+  {
+    "id": "england",
+    "name": "อังกฤษ"
+  },
+  {
+    "id": "germany",
+    "name": "เยอรมัน"
+  },
+  {
+    "id": "russia",
+    "name": "รัสเซีย"
+  },
+  {
+    "id": "germany_vip",
+    "name": "เยอรมัน VIP"
+  },
+  {
+    "id": "lao_redcross",
+    "name": "ลาวกาชาด"
+  },
+  {
+    "id": "russia_vip",
+    "name": "รัสเซีย VIP"
+  },
+  {
+    "id": "dowjones_vip",
+    "name": "ดาวโจนส์ VIP"
+  },
+  {
+    "id": "dowjones_star",
+    "name": "ดาวโจนส์ STAR"
+  },
+  {
+    "id": "dowjones",
+    "name": "ดาวโจนส์"
+  },
+  {
+    "id": "thai_gov",
+    "name": "สลากกินแบ่งรัฐบาล (ไทย)"
+  },
+  {
+    "id": "gsb",
+    "name": "หวยออมสิน"
+  },
+  {
+    "id": "baac",
+    "name": "หวย ธ.ก.ส."
+  }
+]

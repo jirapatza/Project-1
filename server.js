@@ -125,7 +125,7 @@ const server = http.createServer(async (req, res) => {
         data = await upstream(key);
         res.setHeader('X-Project1-Data', 'live');
       } catch {
-        data = cache.get(key)?.data ?? JSON.parse(await readFile(path.join(root, 'data', `bombim00-${key}.json`), 'utf8'));
+        data = cache.get(key)?.data ?? JSON.parse(await readFile(path.join(root, `bombim00-${key}.json`), 'utf8'));
         res.setHeader('X-Project1-Data', 'archive');
       }
       return json(res, 200, data);
