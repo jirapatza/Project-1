@@ -135,6 +135,17 @@ const server = http.createServer(async (req, res) => {
     const data = await readFile(path.join(root,'public',name));
     const type = name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html';
     res.writeHead(200,{'Content-Type':`${type}; charset=utf-8`,'Cache-Control':'no-store'});res.end(data);
-  } catch (e) { json(res,502,{error:'เกิดข้อผิดพลาด',detail:String(e.message)}); }
+  } catch (e) {
+    const incidentId = randomBytes(8).toString('hex');
+    console.error(JSON.stringify({
+      event: 'request_error',
+      incidentId,
+      method: req.method,
+      path: pathname,
+      message: e instanceof Error ? e.message : String(e),
+    }));
+    if (!res.headersSent) json(res, 500, { error: 'เกิดข้อผิดพลาด', incidentId });
+    else res.end();
+  }
 });
 server.listen(PORT,HOST,()=>console.log(`Project 1 listening on http://${HOST}:${PORT}`));
