@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { calculate, version } from './lao-snapshot.mjs';
 import { archivedResults, publishers } from './publishers.js';
+import { readBombimSource } from './bombim-source.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -16,10 +17,6 @@ if (password.length < 12 || secret.length < 32) {
   process.exit(1);
 }
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
-const sourceUrls = {
-  catalog: 'https://raw.githubusercontent.com/jirapatza/Bombim00/main/data/all_lotteries.json',
-  history: `https://raw.githubusercontent.com/jirapatza/Bombim00/${encodeURIComponent(branch)}/lottery_previous_results.json`,
-};
 const cache = new Map();
 const attempts = new Map();
 const cookies = req => Object.fromEntries((req.headers.cookie || '').split(';').map(x => x.trim().split('=')).filter(x => x.length === 2));
@@ -42,10 +39,7 @@ async function body(req) {
 async function upstream(key) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.time < 60000) return hit.data;
-  const response = await fetch(sourceUrls[key], {signal:AbortSignal.timeout(5000),headers:{Accept:'application/json'}});
-  if (!response.ok) throw new Error(`Bombim00 HTTP ${response.status}`);
-  const data = await response.json();
-  if (!Array.isArray(data)) throw new Error('Unexpected upstream response');
+  const data = await readBombimSource(key, branch, process.env.BOMBIM_READ_TOKEN?.trim());
   cache.set(key, {time:Date.now(),data});
   return data;
 }
