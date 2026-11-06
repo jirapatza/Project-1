@@ -3,12 +3,43 @@ import assert from 'node:assert/strict';
 import { formulaOptions, calculateFormula, backtestFormula, validDrawDate, resolveFormulaDraws } from '../public/independent-formulas.js';
 
 test('weekday formula works without results and uses the selected draw weekday', () => {
-  assert.equal(formulaOptions.length, 4);
+  assert.equal(formulaOptions.length, 5);
   const monday = calculateFormula('weekday', '2026-11-09', []);
   assert.deepEqual(monday.primary, [2, 9]);
   assert.deepEqual(monday.pairs, ['29', '25', '27', '95', '97']);
   assert.equal(monday.usedDraws, 0);
   assert.deepEqual(calculateFormula('weekday', '2026-11-08', []).primary, [1, 8]);
+});
+
+test('Lao video formula reproduces 06 + 18, and does not guess fractional quotients', () => {
+  const history = [{ date: '2026-11-03', top3: '006', bottom2: '18' }];
+  const result = calculateFormula('lao_divide_three', '2026-11-04', history);
+  assert.deepEqual(result.primary, [8, 9]);
+  assert.equal(result.calculation, '06 + 18 = 24; 24 ÷ 3 = 8');
+  assert.deepEqual(result.pairs, []);
+  assert.deepEqual(result.triples, []);
+  assert.match(calculateFormula('lao_divide_three', '2026-11-04', [{ date: '2026-11-03', top3: '006', bottom2: '19' }]).error, /มีเศษ/);
+  assert.ok(calculateFormula('lao_divide_three', '2026-11-04', [{ date: '2026-11-03', conflict: true }]).error);
+  assert.deepEqual(calculateFormula('lao_divide_three', '2026-11-04', [{ date: '2026-11-03', top3: '006', bottom2: '21' }]).primary, [9, 0]);
+});
+
+test('backtest range does not replace an uncomputable recent draw with an older one', () => {
+  const draws = [
+    { date: '2026-11-01', top3: '006', bottom2: '18' },
+    { date: '2026-11-02', top3: '006', bottom2: '19' },
+    { date: '2026-11-03', top3: '123', bottom2: '45' },
+  ];
+  assert.deepEqual(backtestFormula('lao_divide_three', draws, 1), []);
+  assert.equal(backtestFormula('lao_divide_three', draws, 2).length, 1);
+});
+
+test('Lao video backtest counts only independently available digits and omits unsupported pairs', () => {
+  const draws = [{ date: '2026-11-03', top3: '006', bottom2: '18' }, { date: '2026-11-04', top3: '123', bottom2: '89' }];
+  const result = backtestFormula('lao_divide_three', draws);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].primaryHit, true);
+  assert.equal(result[0].pairHit, null);
+  assert.equal(result[0].tripleHit, null);
 });
 
 test('past-result formulas require actual data and ignore the target and future draws', () => {

@@ -316,6 +316,9 @@ async function showCalculation() {
 function showIndependentFormula() {
   const lottery = $('calculateLottery').value;
   const date = $('formulaDate').value;
+  const laoOption = [...$('formulaChoice').options].find(option => option.value === 'lao_divide_three');
+  if (laoOption && lottery !== 'lao_patthana' && $('formulaChoice').value === laoOption.value) $('formulaChoice').value = 'weekday';
+  if (laoOption) laoOption.disabled = lottery !== 'lao_patthana';
   const id = $('formulaChoice').value;
   $('formulaRows').replaceChildren();
   $('formulaPrediction').textContent = '';
@@ -336,7 +339,12 @@ function showIndependentFormula() {
     const selected = formulaOptions.find(item => item.id === id);
     $('formulaStatus').textContent = `${selected.name} · งวด ${date}` +
       (result.usedDraws ? ` · ใช้ข้อมูล ${result.usedDraws} งวด ล่าสุด ${result.latestDraw}` : ' · ไม่ใช้ผลย้อนหลัง');
-    $('formulaPrediction').textContent = `เลขเด่น ${result.primary.join(', ')} · เลขรอง ${result.secondary.join(', ')} · 2 ตัว ${result.pairs.join(', ')} · 3 ตัว ${result.triples.join(', ')}`;
+    const parts = [`เลขเด่น ${result.primary.join(', ')}`];
+    if (result.secondary.length) parts.push(`เลขรอง ${result.secondary.join(', ')}`);
+    if (result.pairs.length) parts.push(`2 ตัว ${result.pairs.join(', ')}`);
+    if (result.triples.length) parts.push(`3 ตัว ${result.triples.join(', ')}`);
+    if (result.calculation) parts.push(`วิธีคิด ${result.calculation}`, 'นับเลขถัดจาก 9 เป็น 0', 'ใช้งวดล่าสุดที่มีข้อมูล กรุณาตรวจว่าเป็นงวดก่อนหน้าจริง');
+    $('formulaPrediction').textContent = parts.join(' · ');
   }
   const limit = Number($('formulaLimit').value);
   const backtest = backtestFormula(id, draws, limit);
@@ -344,8 +352,9 @@ function showIndependentFormula() {
   const conflicts = draws.filter(row => row.conflict).length;
   $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · ตรวจได้ ${backtest.length}/${limit} งวด`;
   $('formulaRows').replaceChildren(...backtest.map(row => tableRow([
-    row.date, row.prediction.pairs.join(', '), row.bottom2 ?? '—', row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
-    row.prediction.triples.join(', '), row.top3 ?? '—', row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
+    row.date, row.prediction.primary.join(', '), row.primaryHit === null ? 'ไม่มีข้อมูล' : row.primaryHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction.pairs.join(', ') || '—', row.bottom2 ?? '—', !row.prediction.pairs.length ? 'ไม่ใช้สูตรนี้' : row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction.triples.join(', ') || '—', row.top3 ?? '—', !row.prediction.triples.length ? 'ไม่ใช้สูตรนี้' : row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
   ])));
 }
 const bangkokToday = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok' }).format(new Date());
