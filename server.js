@@ -43,7 +43,7 @@ async function upstream(key) {
   cache.set(key, {time:Date.now(),data});
   return data;
 }
-const files = new Map(Object.entries({'/':'index.html','/app.js':'app.js','/formulas.js':'formulas.js','/style.css':'style.css'}));
+const files = new Map(Object.entries({'/':'index.html','/app.js':'app.js','/formulas.js':'formulas.js','/independent-formulas.js':'independent-formulas.js','/style.css':'style.css'}));
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');

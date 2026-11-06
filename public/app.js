@@ -1,7 +1,8 @@
+import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws } from './independent-formulas.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null};
 const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/วีไอพี/g,'vip').replace(/นิคเคอิ/g,'นิเคอิ').replace(/หวยหุ้น|หวย|รอบ|\s|[.\-_()]/g,'');
-const aliases={thai_gov:['สลากกินแบ่งรัฐบาล'],gsb:['หวยออมสิน'],baac:['หวย ธ.ก.ส.'],lao_patthana:['หวยลาวพัฒนา','laoslotto','หวยลาว รอบ 20:30'],nikkei_morning:['หวยหุ้นนิคเคอิเช้า','หวยหุ้นนิเคอิเช้า'],nikkei_afternoon:['หวยหุ้นนิคเคอิบ่าย','หวยหุ้นนิเคอิบ่าย'],china_morning:['หวยหุ้นจีนเช้า'],china_afternoon:['หวยหุ้นจีนบ่าย'],hangseng_morning:['หวยหุ้นฮั่งเส็งเช้า'],hangseng_afternoon:['หวยหุ้นฮั่งเส็งบ่าย'],dowjones:['หวยหุ้นดาวโจนส์'],dowjones_star:['หวยหุ้นดาวโจนส์พิเศษ'],russia:['หวยหุ้นรัสเซีย'],singapore:['หวยหุ้นสิงคโปร์'],india:['หวยหุ้นอินเดีย'],taiwan:['หวยหุ้นไต้หวัน'],korea:['หวยหุ้นเกาหลี'],england:['หวยหุ้นอังกฤษ'],thai_stock_evening:['หวยหุ้นไทยเย็น'],hanoi_regular:['ฮานอยปกติ'],hanoi_special:['ฮานอยพิเศษ'],hanoi_vip:['ฮานอย VIP']};
+const aliases={thai_gov:['สลากกินแบ่งรัฐบาล'],gsb:['หวยออมสิน'],baac:['หวย ธ.ก.ส.'],lao_patthana:['หวยลาวพัฒนา','laoslotto','หวยลาว รอบ 20:30'],nikkei_morning:['หวยหุ้นนิคเคอิเช้า','หวยหุ้นนิเคอิเช้า'],nikkei_afternoon:['หวยหุ้นนิคเคอิบ่าย','หวยหุ้นนิเคอิบ่าย'],nikkei_vip_morning:['หวยหุ้นนิคเคอิ VIP เช้า','หวยหุ้นนิเคอิ VIP เช้า'],nikkei_vip_afternoon:['หวยหุ้นนิคเคอิ VIP บ่าย','หวยหุ้นนิเคอิ VIP บ่าย'],china_morning:['หวยหุ้นจีนเช้า'],china_afternoon:['หวยหุ้นจีนบ่าย'],china_vip_morning:['หวยหุ้นจีน VIP เช้า'],china_vip_afternoon:['หวยหุ้นจีน VIP บ่าย'],hangseng_morning:['หวยหุ้นฮั่งเส็งเช้า'],hangseng_afternoon:['หวยหุ้นฮั่งเส็งบ่าย'],hangseng_vip_morning:['หวยหุ้นฮั่งเส็ง VIP เช้า'],hangseng_vip_afternoon:['หวยหุ้นฮั่งเส็ง VIP บ่าย'],dowjones:['หวยหุ้นดาวโจนส์'],dowjones_star:['หวยหุ้นดาวโจนส์พิเศษ'],russia:['หวยหุ้นรัสเซีย'],singapore:['หวยหุ้นสิงคโปร์'],india:['หวยหุ้นอินเดีย'],taiwan:['หวยหุ้นไต้หวัน'],korea:['หวยหุ้นเกาหลี'],england:['หวยหุ้นอังกฤษ'],thai_stock_evening:['หวยหุ้นไทยเย็น'],hanoi_regular:['ฮานอยปกติ'],hanoi_special:['ฮานอยพิเศษ'],hanoi_vip:['ฮานอย VIP']};
 // Matching is intentionally conservative. Ambiguous records stay unmatched instead of being assigned incorrectly.
 function candidates(item){return new Set([item.name,...(aliases[item.id]||[])].map(norm));}
 function dateKey(row) {
@@ -124,9 +125,12 @@ async function load() {
   state.historyArchived = history.value?.archived ?? false;
   $('records').textContent = state.historyFailed ? '—' : state.history.length;
   if (catalog.status === 'rejected') {
+    state.catalogFailed = true;
     $('title').textContent = 'โหลดทะเบียนหวยไม่สำเร็จ';
     $('status').textContent = 'โหลดไม่สำเร็จ';
     $('trendStatus').textContent = 'โหลดทะเบียนหวยจาก Bombim00 ไม่สำเร็จ';
+    $('formulaStatus').textContent = 'โหลดทะเบียนหวยไม่สำเร็จ';
+    $('checkSummary').textContent = 'โหลดทะเบียนหวยไม่สำเร็จ';
     return;
   }
   state.catalog = catalog.value.rows;
@@ -174,7 +178,7 @@ function setupCatalog() {
   $('trendStatus').textContent = state.historyFailed ? 'โหลดผลย้อนหลังจาก Bombim00 ไม่สำเร็จ' : latest.length ?
     `ผลล่าสุดและความถี่หลักหน่วยจากข้อมูลไม่เกิน 10 งวดต่อหวย${state.historyArchived ? ' · ใช้สำเนาผลย้อนหลังจาก Bombim00' : ''}` : 'ยังไม่มีผลย้อนหลังที่จับคู่ได้';
   renderPublishers();
-  if (!$('calculateView').hidden) showCalculation();
+  if (!$('calculateView').hidden) { showCalculation(); showIndependentFormula(); }
 }
 
 function resultFor(id, date) {
@@ -291,7 +295,7 @@ async function showCalculation() {
   $('checkRows').replaceChildren();
   const lottery = $('calculateLottery').value;
   if (lottery !== 'lao_patthana') {
-    $('checkSummary').textContent = lottery ? 'รายการนี้ยังไม่มีสูตรที่ผ่านการทดสอบ' : 'กำลังโหลดรายการหวย';
+    $('checkSummary').textContent = state.catalogFailed ? 'โหลดทะเบียนหวยไม่สำเร็จ' : lottery ? 'ชุดทดสอบเดิมมีเฉพาะลาวพัฒนา' : 'กำลังโหลดรายการหวย';
     return;
   }
   $('checkSummary').textContent = 'กำลังโหลดผลทดสอบ';
@@ -309,15 +313,56 @@ async function showCalculation() {
     if ($('calculateLottery').value === lottery) $('checkSummary').textContent = 'โหลดผลทดสอบไม่ได้ กรุณาลองอีกครั้ง';
   }
 }
+function showIndependentFormula() {
+  const lottery = $('calculateLottery').value;
+  const date = $('formulaDate').value;
+  const id = $('formulaChoice').value;
+  $('formulaRows').replaceChildren();
+  $('formulaPrediction').textContent = '';
+  $('formulaHistoryStatus').textContent = '';
+  if (!lottery || !state.byLottery?.has(lottery)) {
+    $('formulaStatus').textContent = state.catalogFailed ? 'โหลดทะเบียนหวยไม่สำเร็จ' : 'กำลังโหลดรายการหวย';
+    return;
+  }
+  const draws = resolveFormulaDraws(state.byLottery.get(lottery).map(row => ({
+    date: dateKey(row),
+    top3: typeof row.เลขบน_3_ตัว === 'string' && /^\d{3}$/.test(row.เลขบน_3_ตัว) ? row.เลขบน_3_ตัว : '',
+    bottom2: twoDigits(row.เลขล่าง_2_ตัว) || (lottery === 'thai_gov' ? twoDigits(row.เลขท้าย_2_ตัว) : '') || '',
+  }))).filter(row => row.date < date);
+  const result = calculateFormula(id, date, draws);
+  if (result.error) {
+    $('formulaStatus').textContent = result.error;
+  } else {
+    const selected = formulaOptions.find(item => item.id === id);
+    $('formulaStatus').textContent = `${selected.name} · งวด ${date}` +
+      (result.usedDraws ? ` · ใช้ข้อมูล ${result.usedDraws} งวด ล่าสุด ${result.latestDraw}` : ' · ไม่ใช้ผลย้อนหลัง');
+    $('formulaPrediction').textContent = `เลขเด่น ${result.primary.join(', ')} · เลขรอง ${result.secondary.join(', ')} · 2 ตัว ${result.pairs.join(', ')} · 3 ตัว ${result.triples.join(', ')}`;
+  }
+  const limit = Number($('formulaLimit').value);
+  const backtest = backtestFormula(id, draws, limit);
+  const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ' : state.historyArchived ? 'ข้อมูลสำรอง' : 'ข้อมูลจากระบบแจ้งผล';
+  const conflicts = draws.filter(row => row.conflict).length;
+  $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · ตรวจได้ ${backtest.length}/${limit} งวด`;
+  $('formulaRows').replaceChildren(...backtest.map(row => tableRow([
+    row.date, row.prediction.pairs.join(', '), row.bottom2 ?? '—', row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction.triples.join(', '), row.top3 ?? '—', row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
+  ])));
+}
+const bangkokToday = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok' }).format(new Date());
+const tomorrow = new Date(`${bangkokToday}T12:00:00Z`);
+tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+$('formulaDate').value = tomorrow.toISOString().slice(0, 10);
+$('formulaChoice').replaceChildren(...formulaOptions.map(item => new Option(item.name, item.id)));
+for (const id of ['formulaChoice', 'formulaDate', 'formulaLimit']) $(id).addEventListener('change', showIndependentFormula);
 for (const button of menus) button.onclick = () => {
   const menu = button.dataset.menu;
   for (const item of menus) item.setAttribute('aria-pressed', String(item === button));
   for (const [key, id] of Object.entries(views)) $(id).hidden = key !== menu;
-  if (menu === 'calculate') showCalculation();
+  if (menu === 'calculate') { showCalculation(); showIndependentFormula(); }
   if (menu === 'publishers') renderPublishers();
   fetch('/api/usage', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({menu})}).catch(() => {});
 };
-$('calculateLottery').onchange = showCalculation;
+$('calculateLottery').onchange = () => { showCalculation(); showIndependentFormula(); };
 $('publisherDate').onchange = renderPublishers;
 $('publisherLottery').onchange = () => {
   const available = publishers.filter(row => row.lottery === $('publisherLottery').value).map(row => row.date);
