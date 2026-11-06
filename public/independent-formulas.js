@@ -4,6 +4,7 @@ export const formulaOptions = [
   { id: 'sum', name: 'ผลรวมร้อยสิบหน่วย' },
   { id: 'frequency', name: 'ความถี่เลขเด่นจากผลย้อนหลัง' },
   { id: 'matrix', name: 'จับคู่เมทริกซ์จากสูตรผลรวม' },
+  { id: 'lao_divide_three', name: 'ลาวพัฒนา: บวก 2 ตัวบน–ล่าง หาร 3' },
 ];
 
 const weekdayDigits = [
@@ -44,6 +45,19 @@ export function calculateFormula(id, date, history) {
   const day = weekdayDigits[new Date(`${date}T12:00:00Z`).getUTCDay()];
   const prior = history.filter(row => validDrawDate(row.date) && row.date < date)
     .sort((a, b) => b.date.localeCompare(a.date));
+  if (id === 'lao_divide_three') {
+    const row = prior[0];
+    if (!row || row.conflict || !validTop(row.top3) || !validBottom(row.bottom2)) {
+      return { error: 'สูตรนี้ต้องมีผล 2 ตัวบนและ 2 ตัวล่างของงวดก่อนหน้าที่ไม่ขัดกัน' };
+    }
+    const top2 = row.top3.slice(-2);
+    const sum = Number(top2) + Number(row.bottom2);
+    if (sum % 3 !== 0) return { error: `ผลรวม ${top2} + ${row.bottom2} = ${sum} หาร 3 มีเศษ คลิปยังไม่ระบุวิธีจัดการเศษ` };
+    const quotient = sum / 3;
+    const digit = quotient % 10;
+    return { primary: [digit, (digit + 1) % 10], secondary: [], pairs: [], triples: [], usedDraws: 1,
+      latestDraw: row.date, calculation: `${top2} + ${row.bottom2} = ${sum}; ${sum} ÷ 3 = ${quotient}` };
+  }
   let primary, secondary, pairs, latestDraw = null, usedDraws = 0;
   if (id === 'weekday') {
     [primary, secondary, pairs] = day;
@@ -94,15 +108,17 @@ export function calculateFormula(id, date, history) {
 export function backtestFormula(id, history, limit = 10) {
   const rows = [...history].filter(row => validDrawDate(row.date)).sort((a, b) => a.date.localeCompare(b.date));
   const results = [];
-  for (let i = 0; i < rows.length; i++) {
+  const start = Math.max(0, rows.length - limit);
+  for (let i = start; i < rows.length; i++) {
     const row = rows[i];
     if (row.conflict || (!validBottom(row.bottom2) && !validTop(row.top3))) continue;
     const prediction = calculateFormula(id, row.date, rows.slice(0, i));
     if (prediction.error) continue;
     results.push({ date: row.date, bottom2: validBottom(row.bottom2) ? row.bottom2 : null,
       top3: validTop(row.top3) ? row.top3 : null, prediction,
-      pairHit: validBottom(row.bottom2) ? prediction.pairs.includes(row.bottom2) : null,
-      tripleHit: validTop(row.top3) ? prediction.triples.includes(row.top3) : null });
+      primaryHit: validBottom(row.bottom2) ? prediction.primary.some(d => row.bottom2.includes(String(d))) : null,
+      pairHit: validBottom(row.bottom2) && prediction.pairs.length ? prediction.pairs.includes(row.bottom2) : null,
+      tripleHit: validTop(row.top3) && prediction.triples.length ? prediction.triples.includes(row.top3) : null });
   }
-  return results.slice(-limit).reverse();
+  return results.reverse();
 }
