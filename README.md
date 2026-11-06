@@ -25,6 +25,8 @@ The server reads these existing Bombim00 files only:
 
 The upstream requests are read-only and cached for 60 seconds. If an upstream request fails, the dashboard labels and uses a bundled extract from Bombim00 commit e836193, with results through 2026-11-02. The extract contains only fields needed by the dashboard. History name matching is conservative; if a result cannot be matched reliably it is not attributed to a lottery. The 54-entry catalog is authoritative.
 
+For a private Bombim00 repository, configure `BOMBIM_READ_TOKEN` as a server-side secret: use a fine-grained GitHub token restricted to that repository with **Contents: read-only**. The server fetches only the two files listed above through GitHub's read-only API; the token must never be included in browser code, logs, or this repository. With no token, the public raw URLs continue to be used. Test the live feed with the token before making the source private. A failed fetch still falls back to the labeled cached or bundled snapshot.
+
 ## Tests
 
 `npm test` runs local server tests; `node --check server.js` checks syntax. Actual source reachability must be verified from the deployment environment.
