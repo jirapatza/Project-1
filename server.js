@@ -6,6 +6,7 @@ import path from 'node:path';
 import { calculate, version } from './lao-snapshot.mjs';
 import { archivedResults, publishers } from './publishers.js';
 import { readBombimSource } from './bombim-source.js';
+import { loadHistoricalData } from './data-source.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -37,11 +38,11 @@ async function body(req) {
   return JSON.parse(data || '{}');
 }
 async function upstream(key) {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.time < 60000) return hit.data;
-  const data = await readBombimSource(key, branch, process.env.BOMBIM_READ_TOKEN?.trim());
-  cache.set(key, {time:Date.now(),data});
-  return data;
+  return loadHistoricalData(key, {
+    cache,
+    fetchUpstream: source => readBombimSource(source, branch, process.env.BOMBIM_READ_TOKEN?.trim()),
+    loadArchive: async source => JSON.parse(await readFile(path.join(root, `bombim00-${source}.json`), 'utf8')),
+  });
 }
 const files = new Map(Object.entries({'/':'index.html','/app.js':'app.js','/formulas.js':'formulas.js','/independent-formulas.js':'independent-formulas.js','/style.css':'style.css'}));
 const server = http.createServer(async (req, res) => {
@@ -114,15 +115,10 @@ const server = http.createServer(async (req, res) => {
     }
     if ((pathname === '/api/catalog' || pathname === '/api/history') && req.method === 'GET') {
       const key = pathname === '/api/catalog' ? 'catalog' : 'history';
-      let data;
-      try {
-        data = await upstream(key);
-        res.setHeader('X-Project1-Data', 'live');
-      } catch {
-        data = cache.get(key)?.data ?? JSON.parse(await readFile(path.join(root, `bombim00-${key}.json`), 'utf8'));
-        res.setHeader('X-Project1-Data', 'archive');
-      }
-      return json(res, 200, data);
+      const snapshot = await upstream(key);
+      res.setHeader('X-Project1-Data', snapshot.source);
+      if (snapshot.fetchedAt != null) res.setHeader('X-Project1-Fetched-At', new Date(snapshot.fetchedAt).toISOString());
+      return json(res, 200, snapshot.data);
     }
     const name = files.get(pathname) || (pathname === '/login.js' ? 'login.js' : null);
     if (!name) return json(res,404,{error:'Not found'});
