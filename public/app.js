@@ -116,7 +116,8 @@ async function fetchList(path) {
   if (!response.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
   const list = await response.json();
   if (!Array.isArray(list)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
-  return {rows: list, archived: response.headers.get('X-Project1-Data') === 'archive'};
+  const origin = response.headers.get('X-Project1-Data');
+  return {rows: list, archived: origin === 'archive' || origin === 'stale-cache'};
 }
 async function load() {
   const [catalog, history] = await Promise.allSettled([fetchList('/api/catalog'), fetchList('/api/history')]);
