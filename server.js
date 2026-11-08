@@ -10,6 +10,7 @@ import { readHistoryApi } from './history-api-source.js';
 import { publicSnapshot } from './snapshot-validation.js';
 import { loadHistoricalData } from './data-source.js';
 import { summarizeHistoryQuality, bangkokDate } from './history-quality.js';
+import { summarizeHistoryCoverage } from './history-coverage.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -112,6 +113,11 @@ const server = http.createServer(async (req, res) => {
       });
       if (!upstream.ok) return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
       return json(res, 200, await upstream.json());
+    }
+    if (pathname === '/api/history-coverage' && req.method === 'GET') {
+      const [catalog, history] = await Promise.all([upstream('catalog'), upstream('history')]);
+      const report = summarizeHistoryCoverage(history.data, catalog.data, bangkokDate());
+      return json(res, 200, report);
     }
     if (pathname === '/api/history-quality' && req.method === 'GET') {
       const [catalog, history] = await Promise.all([upstream('catalog'), upstream('history')]);
