@@ -29,5 +29,8 @@ jobs:
           node --check bombim-source.js
           node --check history-audit.js
           node --check lao-snapshot.mjs
+          node --check guide-poll.mjs
+          node --check cloudflare/history-worker.js
+          node --check cloudflare/guide-input-worker.js
       - name: Run all Project-1 tests
         run: npm test
