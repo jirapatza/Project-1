@@ -16,6 +16,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
 const historyApi = process.env.PROJECT1_HISTORY_API?.trim();
+const guideApi = process.env.PROJECT1_GUIDE_API?.trim();
 const readSource = historyApi
   ? key => readHistoryApi(key, historyApi)
   : async key => publicSnapshot(key, await readBombimSource(key, branch, process.env.BOMBIM_READ_TOKEN?.trim()));
@@ -100,6 +101,17 @@ const server = http.createServer(async (req, res) => {
           exactRank: exact3.indexOf(draw.top3) + 1 };
       });
       return json(res, 200, { version, results: results.reverse() });
+    }
+    if (pathname === '/api/guide-inputs' && req.method === 'GET') {
+      if (!guideApi) return json(res, 503, { error: 'ยังไม่ได้เชื่อมแหล่งข้อมูลใบแนว' });
+      const endpoint = new URL('/api/guide-inputs', guideApi);
+      if (endpoint.protocol !== 'https:') return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
+      const upstream = await fetch(endpoint, {
+        redirect: 'error', signal: AbortSignal.timeout(8000),
+        headers: { Accept: 'application/json' },
+      });
+      if (!upstream.ok) return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
+      return json(res, 200, await upstream.json());
     }
     if (pathname === '/api/history-quality' && req.method === 'GET') {
       const [catalog, history] = await Promise.all([upstream('catalog'), upstream('history')]);

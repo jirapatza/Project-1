@@ -12,8 +12,15 @@ if (!inputPath || !directory || (option !== undefined && option !== '--watch') |
 
 const keyFor = ({ lotteryId, drawDate }) => JSON.stringify([lotteryId, drawDate]);
 
+async function readInput() {
+  if (!inputPath.startsWith('https://')) return JSON.parse(await readFile(inputPath, 'utf8'));
+  const response = await fetch(inputPath, { redirect: 'error', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`Guide inputs HTTP ${response.status}`);
+  return response.json();
+}
+
 async function poll() {
-  const { catalog, weekdays, confirmedDraws, guides, template } = JSON.parse(await readFile(inputPath, 'utf8'));
+  const { catalog, weekdays, confirmedDraws, guides, template } = await readInput();
   const inputs = new Map();
   for (const guide of guides) {
     const key = keyFor(guide);
