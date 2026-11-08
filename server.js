@@ -75,9 +75,16 @@ const server = http.createServer(async (req, res) => {
     }
     if (!authorized(req)) {
       if (pathname.startsWith('/api/')) return json(res,401,{error:'กรุณาเข้าสู่ระบบ'});
-      if (pathname === '/' || files.get(pathname)) {
-        if (pathname === '/') {const page=await readFile(path.join(root,'public','login.html'));res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(page);return;}
-        if (pathname === '/style.css' || pathname === '/app.js') { /* login page needs styles and script */ }
+      if (pathname === '/') {
+        const page = await readFile(path.join(root,'public','login.html'));
+        res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
+        res.end(page);
+        return;
+      }
+      // The login screen needs only CSS and its own script.
+      // Dashboard HTML and JavaScript must require a valid session.
+      if (pathname !== '/style.css' && pathname !== '/login.js') {
+        return json(res,401,{error:'กรุณาเข้าสู่ระบบ'});
       }
     }
     if (pathname === '/api/publishers' && req.method === 'GET') {
