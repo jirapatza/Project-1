@@ -7,6 +7,7 @@ import { calculate, version } from './lao-snapshot.mjs';
 import { archivedResults, publishers } from './publishers.js';
 import { readBombimSource } from './bombim-source.js';
 import { loadHistoricalData } from './data-source.js';
+import { summarizeHistoryQuality, bangkokDate } from './history-quality.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -112,6 +113,17 @@ const server = http.createServer(async (req, res) => {
           exactRank: exact3.indexOf(draw.top3) + 1 };
       });
       return json(res, 200, { version, results: results.reverse() });
+    }
+    if (pathname === '/api/history-quality' && req.method === 'GET') {
+      const [catalog, history] = await Promise.all([upstream('catalog'), upstream('history')]);
+      const summary = summarizeHistoryQuality(history.data, catalog.data, bangkokDate());
+      return json(res, 200, {
+        ...summary,
+        sources: {
+          catalog: { origin: catalog.source, fetchedAt: catalog.fetchedAt == null ? null : new Date(catalog.fetchedAt).toISOString() },
+          history: { origin: history.source, fetchedAt: history.fetchedAt == null ? null : new Date(history.fetchedAt).toISOString() },
+        },
+      });
     }
     if ((pathname === '/api/catalog' || pathname === '/api/history') && req.method === 'GET') {
       const key = pathname === '/api/catalog' ? 'catalog' : 'history';
