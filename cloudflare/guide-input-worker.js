@@ -39,8 +39,11 @@ export async function collectGuideInputs(db, clock = Date.now, fetchImpl = fetch
     const urls = guideSourceUrls(row.id, date, row.drawTime);
     if (now < startAt && !urls.length) return [];
     const last = prior.get(row.id);
-    // Refresh hourly while prefetched and once at the start of the render window.
-    if (last && (now < startAt ? now - last.checkedAt < 60 * minute : last.checkedAt >= startAt && last.status === 'ready')) return [];
+    // Retry missing inputs sooner while prefetched, then refresh at the start of the render window.
+    if (last) {
+      const refreshAfter = (last.status === 'ready' ? 60 : 15) * minute;
+      if (now < startAt ? now - last.checkedAt < refreshAfter : last.checkedAt >= startAt && last.status === 'ready') return [];
+    }
     return [{ row, urls, deadline }];
   });
 
