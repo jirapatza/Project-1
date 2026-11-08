@@ -20,6 +20,7 @@ if (password.length < 12 || secret.length < 32) {
 }
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
 const cache = new Map();
+const retryUntil = new Map();
 const attempts = new Map();
 const cookies = req => Object.fromEntries((req.headers.cookie || '').split(';').map(x => x.trim().split('=')).filter(x => x.length === 2));
 const hmac = value => createHmac('sha256', secret).update(value).digest('hex');
@@ -40,7 +41,7 @@ async function body(req) {
 }
 async function upstream(key) {
   return loadHistoricalData(key, {
-    cache,
+    cache, retryUntil,
     fetchUpstream: source => readBombimSource(source, branch, process.env.BOMBIM_READ_TOKEN?.trim()),
     loadArchive: async source => JSON.parse(await readFile(path.join(root, `bombim00-${source}.json`), 'utf8')),
   });
