@@ -36,7 +36,7 @@ test('dashboard opens directly and retired login endpoints return 404', { timeou
     assert.equal(page.status, 200);
     assert.equal(page.headers.get('set-cookie'), null);
     assert.match(await page.text(), /id="calculateView"/);
-    for (const route of ['/style.css', '/app.js', '/history-records.js', '/formulas.js', '/independent-formulas.js',
+    for (const route of ['/style.css', '/app.js', '/history-records.js', '/history-availability.js', '/formulas.js', '/independent-formulas.js',
       '/studio', '/studio.js', '/api/lao-backtest', '/api/publishers']) {
       assert.equal((await fetch(base + route)).status, 200, route);
     }

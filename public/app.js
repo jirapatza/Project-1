@@ -1,5 +1,6 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
 import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws } from './independent-formulas.js';
+import { describeHistoryAvailability } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null};
 function indexHistory() {
@@ -63,9 +64,9 @@ function select(id) {
   $('n').textContent = rows.length;
   $('days').textContent = rows.length;
   $('latest').textContent = rows.length ? dateKey(rows[0]) : 'ไม่มีข้อมูล';
-  $('status').textContent = state.historyFailed ? 'โหลดไม่สำเร็จ' : rows.length ? 'มีข้อมูลย้อนหลัง' : 'ยังไม่มีข้อมูล';
-  $('message').textContent = state.historyFailed ? 'เชื่อมต่อผลย้อนหลังจาก Bombim00 ไม่สำเร็จ' :
-    rows.length ? (state.historyArchived ? 'ใช้สำเนาผลย้อนหลังจาก Bombim00' : 'แสดงเฉพาะงวดที่จับคู่ชื่อได้อย่างชัดเจน') : 'ยังไม่พบงวดที่จับคู่ได้ในช่วงที่เลือก';
+  const availability = describeHistoryAvailability(rows.length, Number($('historyLimit').value), state.historyFailed);
+  $('status').textContent = availability.status;
+  $('message').textContent = availability.message + (rows.length && state.historyArchived ? ' · ใช้สำเนาผลย้อนหลัง' : '');
   const counts = Array(10).fill(0);
   const tens = Array(10).fill(0);
   const gaps = Array(10).fill(0);

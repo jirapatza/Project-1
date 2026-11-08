@@ -44,6 +44,7 @@ const files = new Map(Object.entries({
   '/independent-formulas.js': 'independent-formulas.js',
   '/style.css': 'style.css',
   '/history-records.js': 'history-records.js',
+  '/history-availability.js': 'history-availability.js',
   '/studio': 'studio.html',
   '/studio.css': 'studio.css',
   '/studio.js': 'studio.js',
