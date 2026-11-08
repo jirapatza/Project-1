@@ -1,3 +1,5 @@
+import { bangkokDate } from './public/history-records.js';
+
 const markets = Object.freeze({
   hanoi_regular: { slug: 'hanoi-normal', drawTime: '18:30' },
   hanoi_special: { slug: 'hanoi-special', drawTime: '17:30' },
@@ -5,7 +7,25 @@ const markets = Object.freeze({
   lao_patthana: { slug: 'lao-development', drawTime: '20:30' },
 });
 
+const stockUrl = 'https://leklnw.com/huay-ai-stock/';
+const stockHeadings = Object.freeze({
+  nikkei_morning: 'หวยหุ้นนิเคอิรอบเช้า',
+  nikkei_afternoon: 'หวยหุ้นนิเคอิรอบบ่าย',
+  hangseng_morning: 'หวยหุ้นฮั่งเส็งรอบเช้า',
+  hangseng_afternoon: 'หวยหุ้นฮั่งเส็งรอบบ่าย',
+  china_morning: 'หวยหุ้นจีนรอบเช้า',
+  china_afternoon: 'หวยหุ้นจีนรอบบ่าย',
+  korea: 'หวยหุ้นเกาหลี',
+  singapore: 'หวยหุ้นสิงคโปร์',
+  taiwan: 'หวยหุ้นไต้หวัน',
+  india: 'หวยหุ้นอินเดีย',
+  russia: 'หวยหุ้นรัสเซีย',
+  germany: 'หวยหุ้นเยอรมัน',
+  england: 'หวยหุ้นอังกฤษ',
+});
+
 export function guideSourceUrl(lotteryId, date, drawTime) {
+  if (Object.hasOwn(stockHeadings, lotteryId)) return stockUrl;
   const market = Object.hasOwn(markets, lotteryId) ? markets[lotteryId] : null;
   if (!market || market.drawTime !== String(drawTime).match(/^\d{2}:\d{2}/)?.[0]) return null;
   return `https://lotterychecks.com/lucky-picks/${market.slug}/${date}`;
@@ -64,7 +84,39 @@ export function parsePublishedGuide(html, sourceUrl, observedAt, closeAt) {
   return { sourceUrl, publishedAt: new Date(publishedAt).toISOString(), modifiedAt: new Date(modifiedAt).toISOString(), numbers };
 }
 
-export async function readPublishedGuide(url, closeAt, clock = Date.now, fetchImpl = fetch) {
+export function parseStockGuide(html, lotteryId, date, observedAt, closeAt) {
+  if (!Object.hasOwn(stockHeadings, lotteryId)) return null;
+  const canonical = html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i)?.[1];
+  const heading = plain(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '');
+  const target = heading.match(/^AI ใบ้หวย หวยหุ้น (\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!target || canonical !== stockUrl) return null;
+  const [, day, month, year] = target;
+  const iso = `${Number(year) >= 2400 ? Number(year) - 543 : year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  const modified = html.match(/<meta\s+property=["']article:modified_time["']\s+content=["']([^"']+)["']/i)?.[1];
+  const stamp = Date.parse(modified);
+  if (iso !== date || !Number.isFinite(stamp) || bangkokDate(new Date(stamp)) !== date ||
+      stamp > observedAt || stamp >= closeAt) return null;
+
+  const tables = [...html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)].filter(([table]) =>
+    plain(table.match(/<th\b[^>]*>([\s\S]*?)<\/th>/i)?.[1] ?? '') === stockHeadings[lotteryId],
+  );
+  if (tables.length !== 1) return null;
+  const known = { 'เลขเด่น วิ่ง/รูด': ['standout', 1], 'จับคู่ 2 ตัวเด่น': ['twoDigit', 2],
+    'จับคู่ 3 ตัวเด่น': ['threeDigit', 3] };
+  const numbers = { standout: [], running: [], twoDigit: [], threeDigit: [] };
+  for (const [row] of tables[0][0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)) {
+    const [label, value] = [...row.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map(([, cell]) => plain(cell));
+    if (!value || !Object.hasOwn(known, label)) continue;
+    const [key, width] = known[label];
+    const parts = value.replace(/&(?:#\d+|#x[0-9a-f]+|ndash|mdash);/gi, ' ').match(/[0-9]+/g) ?? [];
+    numbers[key] = [...new Set(parts.filter(digit => digit.length === width))];
+  }
+  if (!numbers.twoDigit.length || !numbers.threeDigit.length) return null;
+  numbers.running = [...numbers.standout];
+  return { sourceUrl: stockUrl, publishedAt: null, modifiedAt: new Date(stamp).toISOString(), numbers };
+}
+
+export async function readGuideSourcePage(url, fetchImpl = fetch) {
   const response = await fetchImpl(url, {
     redirect: 'manual',
     signal: AbortSignal.timeout(6500),
@@ -77,5 +129,12 @@ export async function readPublishedGuide(url, closeAt, clock = Date.now, fetchIm
   if (Number(response.headers.get('content-length')) > 1_100_000) throw new Error('Guide source page too large');
   const html = await response.text();
   if (html.length > 1_100_000) throw new Error('Guide source page too large');
-  return parsePublishedGuide(html, url, clock(), closeAt);
+  return html;
+}
+
+export function parseGuideSourcePage(html, url, lotteryId, date, observedAt, closeAt) {
+  if (!html) return null;
+  return url === stockUrl
+    ? parseStockGuide(html, lotteryId, date, observedAt, closeAt)
+    : parsePublishedGuide(html, url, observedAt, closeAt);
 }

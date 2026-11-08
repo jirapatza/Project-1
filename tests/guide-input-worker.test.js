@@ -75,3 +75,22 @@ test('scheduled intake serves complete current-day data within the renderer wind
   assert.equal(sql.prepare('SELECT COUNT(*) AS count FROM guide_inputs').get().count, 0);
   assert.equal(sql.prepare('SELECT COUNT(*) AS count FROM history_snapshot').get().count, 1);
 });
+
+test('stock cards require a same-day page and one exact round header', async () => {
+  const { parseStockGuide } = await import('../guide-input-source.js');
+  const stock = `<link rel="canonical" href="https://leklnw.com/huay-ai-stock/" />
+  <meta property="article:modified_time" content="2026-11-06T00:20:00Z" />
+  <h1>AI ใบ้หวย หวยหุ้น 6/11/2569</h1>
+  <table><tr><th>หวยหุ้นนิเคอิรอบเช้า</th></tr>
+  <tr><td>เลขเด่น วิ่ง/รูด</td><td>0 &#8211; 9</td></tr>
+  <tr><td>จับคู่ 2 ตัวเด่น</td><td>09 – 90 – 01 – 10<br>02 – 20 – 08 – 80</td></tr>
+  <tr><td>จับคู่ 3 ตัวเด่น</td><td>009 – 090 – 098 – 980</td></tr></table>`;
+  const today = '2026-11-06';
+  const observed = Date.parse(today + 'T01:00:00Z'), close = Date.parse(today + 'T02:00:00Z');
+  const source = parseStockGuide(stock, 'nikkei_morning', today, observed, close);
+  assert.deepEqual(source.numbers.standout, ['0', '9']);
+  assert.equal(source.numbers.twoDigit.length, 8);
+  assert.equal(source.numbers.threeDigit[0], '009');
+  assert.equal(parseStockGuide(stock, 'nikkei_afternoon', today, observed, close), null);
+  assert.equal(parseStockGuide(stock, 'nikkei_morning', '2026-11-07', observed, close), null);
+});

@@ -46,7 +46,8 @@ export function prepareGuideInput({ row, date, catalog, history, external, obser
     guide,
     missing,
     provenance: {
-      kind: external ? 'published_and_history' : 'history_formula',
+      kind: !external ? 'history_formula' : external.numbers.standout.length >= 2 &&
+        external.numbers.running.length >= 2 ? 'published' : 'published_and_history',
       publishedAt: external?.publishedAt ?? null,
       modifiedAt: external?.modifiedAt ?? null,
       history: historyUrl,

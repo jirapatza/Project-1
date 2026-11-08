@@ -1,7 +1,7 @@
 import weekdays from './draw-weekdays.js';
 import { bangkokDate } from '../public/history-records.js';
 import { auditSchedule } from '../guide-schedule.js';
-import { guideSourceUrl, readPublishedGuide } from '../guide-input-source.js';
+import { guideSourceUrl, parseGuideSourcePage, readGuideSourcePage } from '../guide-input-source.js';
 import { indexGuideHistory, prepareGuideInput } from '../guide-inputs.js';
 
 const minute = 60_000;
@@ -44,12 +44,15 @@ export async function collectGuideInputs(db, clock = Date.now, fetchImpl = fetch
     return [{ row, url, deadline }];
   });
 
+  const sourcePages = new Map();
   const reports = await Promise.all(candidates.map(async ({ row, url, deadline }) => {
     let external;
     let sourceStatus = url ? 'missing' : 'unmapped';
     if (url) {
       try {
-        external = await readPublishedGuide(url, Date.parse(row.closeAt), clock, fetchImpl);
+        if (!sourcePages.has(url)) sourcePages.set(url, readGuideSourcePage(url, fetchImpl));
+        const html = await sourcePages.get(url);
+        external = parseGuideSourcePage(html, url, row.id, date, clock(), Date.parse(row.closeAt));
         if (external) sourceStatus = 'published';
       } catch {
         sourceStatus = 'unreachable';
