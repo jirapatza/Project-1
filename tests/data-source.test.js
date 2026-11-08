@@ -65,3 +65,51 @@ test('retry isolation keeps history outages from blocking catalog',async()=>{
   assert.equal((await loadHistoricalData('catalog',options)).source,'upstream');
   assert.equal((await loadHistoricalData('history',options)).source,'archive');
 });
+
+test('concurrent history requests share a single upstream fetch', async () => {
+  const cache = new Map(), retryUntil = new Map(), inFlight = new Map();
+  let calls = 0, release;
+  const options = {
+    cache, retryUntil, inFlight, now: () => 1000,
+    fetchUpstream: () => {
+      calls++;
+      return new Promise(resolve => { release = resolve; });
+    },
+    loadArchive: async () => { throw new Error('unnecessary fallback'); },
+  };
+  const pending = [
+    loadHistoricalData('history', options),
+    loadHistoricalData('history', options),
+    loadHistoricalData('history', options),
+  ];
+  assert.equal(calls, 1);
+  release(fixture);
+  const results = await Promise.all(pending);
+  assert.equal(results.length, 3);
+  assert.ok(results.every(result => result.source === 'upstream'));
+  assert.equal(inFlight.size, 0);
+});
+
+test('a failed shared fetch applies one cooldown and clears in-flight state', async () => {
+  const cache = new Map(), retryUntil = new Map(), inFlight = new Map();
+  let calls = 0, fail;
+  const options = {
+    cache, retryUntil, inFlight, now: () => 1000,
+    fetchUpstream: () => {
+      calls++;
+      return new Promise((_, reject) => { fail = reject; });
+    },
+    loadArchive: async () => fixture,
+  };
+  const first = loadHistoricalData('history', options);
+  const second = loadHistoricalData('history', options);
+  assert.equal(calls, 1);
+  fail(new Error('HTTP 403'));
+  const results = await Promise.all([first, second]);
+  assert.equal(results[0].source, 'archive');
+  assert.equal(results[1].source, 'archive');
+  assert.equal(inFlight.size, 0);
+  assert.equal(retryUntil.get('history'), 31000);
+  await loadHistoricalData('history', options);
+  assert.equal(calls, 1);
+});
