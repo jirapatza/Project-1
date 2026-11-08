@@ -22,11 +22,13 @@ test('reports actual catalog coverage without mistaking unknown source codes for
   assert.equal(result.historyRows, 5);
   assert.equal(result.matchedLotteries, 2);
   assert.deepEqual(result.missingLotteries, [
-    { id: 'empty', name: 'Empty', validDraws: 0, firstDraw: null, lastDraw: null },
+    { id: 'empty', name: 'Empty', validDraws: 0, firstDraw: null, lastDraw: null,
+    readiness: { last10: false, last20: false, last30: false } },
   ]);
   assert.deepEqual(result.lotteries[0], {
     id: 'alpha', name: 'Alpha', validDraws: 2,
     firstDraw: '2026-11-01', lastDraw: '2026-11-03',
+    readiness: { last10: false, last20: false, last30: false },
   });
   assert.equal(result.acceptedDraws, 3);
   assert.deepEqual(result.rejectionReasons, { duplicate_draw: 1, unknown_lottery: 1 });
@@ -42,4 +44,24 @@ test('conflicting results do not count toward lottery coverage and future rows a
   assert.equal(result.missingLotteries.length, 3);
   assert.equal(result.rejectionReasons.conflicting_draw, 2);
   assert.equal(result.rejectionReasons.future_date, 1);
+});
+
+test('readiness reflects unique verified-shape historical rows and unknown sources stay separate', () => {
+  const data = [
+    ...Array.from({length: 31}, (_, i) => row('alpha', `2026-10-${String(i + 1).padStart(2, '0')}`)),
+    row('beta', '2026-11-07'),
+    row('not-in-catalog', '2026-11-07'),
+    row('not-in-catalog', '2026-11-08'),
+  ];
+  const report = summarizeHistoryCoverage(data, catalog, '2026-11-08');
+  assert.deepEqual(report.lotteries[0].readiness, {
+    last10: true, last20: true, last30: true,
+  });
+  assert.deepEqual(report.lotteries[1].readiness, {
+    last10: false, last20: false, last30: false,
+  });
+  assert.deepEqual(report.unmatchedSources, [
+    { sourceId: 'not-in-catalog', sourceName: '', rows: 2 },
+  ]);
+  assert.equal(JSON.stringify(report).includes('007'), false);
 });
