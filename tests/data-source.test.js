@@ -29,3 +29,39 @@ test('rejects invalid data from both sources',async()=>{
 test('cannot route unknown source names into local files',async()=>{
   await assert.rejects(loadHistoricalData('../secret',{cache:new Map(),fetchUpstream:async()=>fixture,loadArchive:async()=>fixture}),/Unknown data source/);
 });
+
+test('upstream 403 cooldown uses archive instead of repeated requests',async()=>{
+  const cache=new Map(), retryUntil=new Map();
+  let calls=0, clock=1000;
+  const options={cache,retryUntil,now:()=>clock,retryDelayMs:30000,
+    fetchUpstream:async()=>{calls++;throw new Error('HTTP 403');},
+    loadArchive:async()=>fixture};
+  assert.equal((await loadHistoricalData('history',options)).source,'archive');
+  clock=2000;
+  assert.equal((await loadHistoricalData('history',options)).source,'archive');
+  assert.equal(calls,1);
+  clock=31000;
+  await loadHistoricalData('history',options);
+  assert.equal(calls,2);
+});
+test('successful retry clears cooldown and subsequent requests use cache',async()=>{
+  const cache=new Map(),retryUntil=new Map();
+  let clock=1000, attempts=0;
+  const options={cache,retryUntil,now:()=>clock,retryDelayMs:1000,ttlMs:50,
+    fetchUpstream:async()=>{attempts++; if(attempts===1)throw Error('unreachable');return fixture;},
+    loadArchive:async()=>fixture};
+  assert.equal((await loadHistoricalData('catalog',options)).source,'archive');
+  clock=2200;
+  assert.equal((await loadHistoricalData('catalog',options)).source,'upstream');
+  assert.equal(retryUntil.has('catalog'),false);
+  clock=2201;
+  assert.equal((await loadHistoricalData('catalog',options)).source,'cache');
+  assert.equal(attempts,2);
+});
+test('retry isolation keeps history outages from blocking catalog',async()=>{
+  const retryUntil=new Map([['history',100000]]);
+  const options={cache:new Map(),retryUntil,now:()=>2000,
+    fetchUpstream:async()=>fixture,loadArchive:async()=>[]};
+  assert.equal((await loadHistoricalData('catalog',options)).source,'upstream');
+  assert.equal((await loadHistoricalData('history',options)).source,'archive');
+});
