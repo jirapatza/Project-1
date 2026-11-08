@@ -1,7 +1,7 @@
 import weekdays from './draw-weekdays.js';
 import { bangkokDate } from '../public/history-records.js';
 import { auditSchedule } from '../guide-schedule.js';
-import { guideSourceUrl, parseGuideSourcePage, readGuideSourcePage } from '../guide-input-source.js';
+import { guideSourceUrl, guideSourceUrls, parseGuideSourcePage, readGuideSourcePage } from '../guide-input-source.js';
 import { indexGuideHistory, prepareGuideInput } from '../guide-inputs.js';
 
 const minute = 60_000;
@@ -36,35 +36,48 @@ export async function collectGuideInputs(db, clock = Date.now, fetchImpl = fetch
     if (row.status !== 'matches_weekly_rule') return [];
     const startAt = Date.parse(row.startAt), deadline = Date.parse(row.targetReadyAt);
     if (now > deadline) return [];
-    const url = guideSourceUrl(row.id, date, row.drawTime);
-    if (now < startAt && !url) return [];
+    const urls = guideSourceUrls(row.id, date, row.drawTime);
+    if (now < startAt && !urls.length) return [];
     const last = prior.get(row.id);
-    // Refresh hourly while prefetched and once at the start of the render window.
-    if (last && (now < startAt ? now - last.checkedAt < 60 * minute : last.checkedAt >= startAt && last.status === 'ready')) return [];
-    return [{ row, url, deadline }];
+    // Retry missing inputs sooner while prefetched, then refresh at the start of the render window.
+    if (last) {
+      const refreshAfter = (last.status === 'ready' ? 60 : 15) * minute;
+      if (now < startAt ? now - last.checkedAt < refreshAfter : last.checkedAt >= startAt && last.status === 'ready') return [];
+    }
+    return [{ row, urls, deadline }];
   });
 
   const sourcePages = new Map();
-  const reports = await Promise.all(candidates.map(async ({ row, url, deadline }) => {
-    let external;
-    let sourceStatus = url ? 'missing' : 'unmapped';
-    if (url) {
+  const reports = await Promise.all(candidates.map(async ({ row, urls, deadline }) => {
+    let payload;
+    let unreachable = false;
+    const prepare = (external, observedAt) =>
+      prepareGuideInput({ row, date, catalog, history: indexed.get(row.id), external, observedAt, historyUrl });
+    for (const url of urls) {
       try {
         if (!sourcePages.has(url)) sourcePages.set(url, readGuideSourcePage(url, fetchImpl));
         const html = await sourcePages.get(url);
-        external = parseGuideSourcePage(html, url, row.id, date, clock(), Date.parse(row.closeAt));
-        if (external) sourceStatus = 'published';
+        const checkedAt = clock();
+        const external = parseGuideSourcePage(html, url, row.id, date, checkedAt, Date.parse(row.closeAt));
+        if (!external) continue;
+        const candidate = prepare(external, checkedAt);
+        payload ??= candidate;
+        if (candidate.status === 'ready' || candidate.status === 'result_already_present') {
+          payload = candidate;
+          break;
+        }
       } catch {
-        sourceStatus = 'unreachable';
-        if (prior.get(row.id)?.status === 'ready') return { id: row.id, status: 'kept_ready' };
+        unreachable = true;
       }
     }
     const observedAt = clock();
     if (observedAt > deadline || bangkokDate(new Date(observedAt)) !== date) return { id: row.id, status: 'late' };
-    const payload = {
-      ...prepareGuideInput({ row, date, catalog, history: indexed.get(row.id), external, observedAt, historyUrl }),
-      sourceStatus, startAt: row.startAt, targetReadyAt: row.targetReadyAt,
-    };
+    if (unreachable && (!payload || payload.status === 'incomplete') && prior.get(row.id)?.status === 'ready') {
+      return { id: row.id, status: 'kept_ready' };
+    }
+    const sourceStatus = payload ? 'published' : unreachable ? 'unreachable' : urls.length ? 'missing' : 'unmapped';
+    payload = { ...(payload ?? prepare(undefined, observedAt)), sourceStatus,
+      startAt: row.startAt, targetReadyAt: row.targetReadyAt };
     await db.prepare(`
       INSERT INTO guide_inputs (draw_date, lottery_id, checked_at, expires_at, payload) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(draw_date, lottery_id) DO UPDATE SET checked_at = excluded.checked_at,

@@ -1,13 +1,14 @@
 import { bangkokDate } from './public/history-records.js';
 
 const markets = Object.freeze({
-  hanoi_regular: { slug: 'hanoi-normal', drawTime: '18:30' },
-  hanoi_special: { slug: 'hanoi-special', drawTime: '17:30' },
-  hanoi_vip: { slug: 'hanoi-vip', drawTime: '19:30' },
+  hanoi_regular: { slug: 'hanoi-normal', drawTime: '18:30', fallbackHeading: 'หวยฮานอยปกติ' },
+  hanoi_special: { slug: 'hanoi-special', drawTime: '17:30', fallbackHeading: 'หวยฮานอยพิเศษ' },
+  hanoi_vip: { slug: 'hanoi-vip', drawTime: '19:30', fallbackHeading: 'หวยฮานอย VIP' },
   lao_patthana: { slug: 'lao-development', drawTime: '20:30' },
 });
 
 const stockUrl = 'https://leklnw.com/huay-ai-stock/';
+const hanoiFallbackUrl = 'https://leklnw.com/all-huay/';
 const stockHeadings = Object.freeze({
   nikkei_morning: 'หวยหุ้นนิเคอิรอบเช้า',
   nikkei_afternoon: 'หวยหุ้นนิเคอิรอบบ่าย',
@@ -29,6 +30,12 @@ export function guideSourceUrl(lotteryId, date, drawTime) {
   const market = Object.hasOwn(markets, lotteryId) ? markets[lotteryId] : null;
   if (!market || market.drawTime !== String(drawTime).match(/^\d{2}:\d{2}/)?.[0]) return null;
   return `https://lotterychecks.com/lucky-picks/${market.slug}/${date}`;
+}
+
+export function guideSourceUrls(lotteryId, date, drawTime) {
+  const primary = guideSourceUrl(lotteryId, date, drawTime);
+  if (!primary) return [];
+  return markets[lotteryId]?.fallbackHeading ? [primary, hanoiFallbackUrl] : [primary];
 }
 
 const plain = value => value.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ').replace(/\s+/g, ' ').trim();
@@ -59,7 +66,7 @@ export function parsePublishedGuide(html, sourceUrl, observedAt, closeAt) {
   }
   for (const [table] of html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)) {
     const headings = [...table.matchAll(/<th\b[^>]*>([\s\S]*?)<\/th>/gi)].map(([, cell]) => plain(cell)).join('|');
-    const columns = headings === 'สำนัก|เลขสองตัว|เลขสามตัว';
+    const columns = headings === 'สำนัก|เลขสองตัว|เลขสามตัว' || headings === 'สำนัก|สองตัว|สามตัว';
     if (!columns && headings !== 'สำนัก|ประเภทเลข|เลขที่ประกาศ') continue;
     matchedTables++;
     for (const [row] of table.matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)) {
@@ -86,10 +93,16 @@ export function parsePublishedGuide(html, sourceUrl, observedAt, closeAt) {
 
 export function parseStockGuide(html, lotteryId, date, observedAt, closeAt) {
   if (!Object.hasOwn(stockHeadings, lotteryId)) return null;
+  return parseLekLNWGuide(html, stockUrl, 'หวยหุ้น', stockHeadings[lotteryId], date, observedAt, closeAt);
+}
+
+function parseLekLNWGuide(html, url, group, marketHeading, date, observedAt, closeAt) {
   const canonical = html.match(/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']/i)?.[1];
   const heading = plain(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? '');
-  const target = heading.match(/^AI ใบ้หวย หวยหุ้น (\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!target || canonical !== stockUrl) return null;
+  const prefix = `AI ใบ้หวย ${group} `;
+  if (canonical !== url || !heading.startsWith(prefix)) return null;
+  const target = heading.slice(prefix.length).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!target) return null;
   const [, day, month, year] = target;
   const iso = `${Number(year) >= 2400 ? Number(year) - 543 : year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   const modified = html.match(/<meta\s+property=["']article:modified_time["']\s+content=["']([^"']+)["']/i)?.[1];
@@ -98,7 +111,7 @@ export function parseStockGuide(html, lotteryId, date, observedAt, closeAt) {
       stamp > observedAt || stamp >= closeAt) return null;
 
   const tables = [...html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)].filter(([table]) =>
-    plain(table.match(/<th\b[^>]*>([\s\S]*?)<\/th>/i)?.[1] ?? '') === stockHeadings[lotteryId],
+    plain(table.match(/<th\b[^>]*>([\s\S]*?)<\/th>/i)?.[1] ?? '') === marketHeading,
   );
   if (tables.length !== 1) return null;
   const known = { 'เลขเด่น วิ่ง/รูด': ['standout', 1], 'จับคู่ 2 ตัวเด่น': ['twoDigit', 2],
@@ -113,7 +126,7 @@ export function parseStockGuide(html, lotteryId, date, observedAt, closeAt) {
   }
   if (!numbers.twoDigit.length || !numbers.threeDigit.length) return null;
   numbers.running = [...numbers.standout];
-  return { sourceUrl: stockUrl, publishedAt: null, modifiedAt: new Date(stamp).toISOString(), numbers };
+  return { sourceUrl: url, publishedAt: null, modifiedAt: new Date(stamp).toISOString(), numbers };
 }
 
 export async function readGuideSourcePage(url, fetchImpl = fetch) {
@@ -134,7 +147,10 @@ export async function readGuideSourcePage(url, fetchImpl = fetch) {
 
 export function parseGuideSourcePage(html, url, lotteryId, date, observedAt, closeAt) {
   if (!html) return null;
-  return url === stockUrl
-    ? parseStockGuide(html, lotteryId, date, observedAt, closeAt)
-    : parsePublishedGuide(html, url, observedAt, closeAt);
+  if (url === stockUrl) return parseStockGuide(html, lotteryId, date, observedAt, closeAt);
+  if (url === hanoiFallbackUrl) {
+    const heading = markets[lotteryId]?.fallbackHeading;
+    return heading ? parseLekLNWGuide(html, url, 'หวยลาวและหวยฮานอย', heading, date, observedAt, closeAt) : null;
+  }
+  return parsePublishedGuide(html, url, observedAt, closeAt);
 }
