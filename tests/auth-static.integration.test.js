@@ -57,10 +57,12 @@ test('anonymous visitors can load login assets but cannot load dashboard or priv
     assert.equal(login.status, 200);
     const cookie = login.headers.get('set-cookie')?.split(';')[0];
     assert.ok(cookie?.startsWith('p1session='));
-    for (const path of ['/', '/index.html', '/app.js', '/independent-formulas.js']) {
+    for (const path of ['/', '/app.js', '/independent-formulas.js']) {
       const response = await fetch(base + path, { headers: { Cookie: cookie } });
       assert.equal(response.status, 200, path);
     }
+    // Only / maps to the HTML dashboard; /index.html is intentionally not routed.
+    assert.equal((await fetch(base + '/index.html', { headers: { Cookie: cookie } })).status, 404);
     const session = await fetch(base + '/api/me', { headers: { Cookie: cookie } });
     assert.deepEqual(await session.json(), { authenticated: true });
   } finally {
