@@ -59,10 +59,13 @@ Open `/studio` to enter numbers or import a draft from the formula tab. The stud
 The automatic runner uses the same Canvas exporter. Install dependencies with `npm ci` and provide an installed Chromium via `GUIDE_CHROMIUM_PATH` if needed.
 
 ```bash
-node guide-poll.mjs INPUT_JSON TRANSIENT_DIRECTORY [--watch]
+node guide-poll.mjs INPUT_JSON_OR_HTTPS_URL TRANSIENT_DIRECTORY [--watch]
 ```
 
 The input provides `catalog`, `weekdays`, `confirmedDraws`, `guides` and optionally `template`. `--watch` reads updated input after each completed poll, with a default interval of 60 seconds. The runner only accepts independently confirmed current Bangkok draw dates within its per-draw window. It uses a dedicated transient directory supporting atomic hard links. Published pairs expire after 24 hours and the runner purges them on its next poll. A verified feed and an always-on host are required for production collection.
+
+The separate `project1-guide-inputs` Worker uses the live D1 history and catalog. It prefetches exact-date published data for supported markets, polls every five minutes and provides `GET /api/guide-inputs`. A complete entry can enter `confirmedDraws` and `guides` only in its render window. The `entries` array distinguishes provider-backed input, incomplete data and formula drafts awaiting date confirmation. Render proxies the read-only endpoint when `PROJECT1_GUIDE_API` is configured. The guide schema stores current-day input for up to 24 hours. The guidance job does not write or delete the history snapshot.
+
 
 ## Laos development snapshot pilot (v1.0.0)
 
