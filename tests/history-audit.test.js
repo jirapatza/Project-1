@@ -30,3 +30,29 @@ test('does not mutate source records',()=>{
  auditHistoricalRows([source],catalog,'2026-11-08');
  assert.equal(source.เลขบน_3_ตัว,'007');
 });
+
+test('audits legacy Thai dates and names while keeping the lottery round distinct', () => {
+ const lotteries = [
+  { id: 'nikkei_vip_morning', name: 'นิเคอิเช้า VIP' },
+  { id: 'nikkei_morning', name: 'นิเคอิรอบเช้า' },
+ ];
+ const legacy = row('2 พฤศจิกายน 2569', '007', '03', {
+  หวย: 'หวยหุ้นนิคเคอิ VIP เช้า', ชื่อหวย: 'หวยหุ้นนิคเคอิ VIP เช้า',
+ });
+ const result = auditHistoricalRows([
+  legacy,
+  { ...legacy, หวย: 'nikkei_vip_morning', วันที่จัดรูปแบบ: '02.11.2026' },
+  { ...legacy, หวย: 'nikkei_morning' },
+ ], lotteries, '2026-11-08');
+ assert.deepEqual(result.accepted.map(({ id, date }) => ({ id, date })), [
+  { id: 'nikkei_vip_morning', date: '2026-11-02' },
+ ]);
+ assert.deepEqual(result.rejected.map(row => row.reason), ['duplicate_draw', 'unknown_lottery']);
+});
+
+test('does not assign an unregistered special round to STAR', () => {
+ const result = auditHistoricalRows([
+  row('2026-11-02', '007', '03', { หวย: 'หวยหุ้นดาวโจนส์พิเศษ' }),
+ ], [{ id: 'dowjones_star', name: 'ดาวโจนส์ STAR' }], '2026-11-08');
+ assert.deepEqual(result.rejected, [{ index: 0, reason: 'unknown_lottery' }]);
+});

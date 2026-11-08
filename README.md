@@ -1,39 +1,40 @@
-# Project 1 — Private historical results dashboard
+# Project 1 — Historical results dashboard
 
 This is a **separate** project. It does not commit to, configure, deploy or modify `jirapatza/Bombim00`.
 
 ## Requirements
-Node.js 20 or later. No npm dependencies are required.
+Node.js 20 or later. The web dashboard needs no installed packages. The automatic PNG command needs Playwright Core and Chromium.
 
 ## Start
 
 ```bash
-export PROJECT1_PASSWORD='replace-with-a-long-unique-password'
-export PROJECT1_SESSION_SECRET='replace-with-at-least-32-random-characters'
 npm start
 ```
 
 Open http://127.0.0.1:4173. Set `HOST=0.0.0.0` for a trusted hosting environment, `PORT` for the port, and `NODE_ENV=production` when behind HTTPS.
 
-**Important:** Always use HTTPS for any internet deployment. Do not expose the local server directly to the public internet. Authentication is shared-password access (2–3 people can sign in on their own devices), not per-user accounts. Sessions last 30 days. To invalidate all sessions, rotate `PROJECT1_SESSION_SECRET`. Use a trusted private network or access proxy for stronger protection.
+The dashboard opens directly without a password or session. Anyone who can reach the deployment can load the dashboard and its data endpoints. Repository visibility controls source access separately.
 
 ## Data
 
-The server reads these existing Bombim00 files only:
+Set `PROJECT1_HISTORY_API` to the HTTPS origin of the separate Project-1 Cloudflare Worker. The Worker reads these public Bombim00 files every five minutes and keeps the latest usable catalog and history together in a dedicated D1 database:
+
 - `main/data/all_lotteries.json`
 - `runtime-live/lottery_previous_results.json`
 
-The upstream requests are read-only and cached for 60 seconds. If an upstream request fails, the dashboard labels and uses a bundled extract from Bombim00 commit e836193, with results through 2026-11-02. The extract contains only fields needed by the dashboard. History name matching is conservative; if a result cannot be matched reliably it is not attributed to a lottery. The 54-entry catalog is authoritative.
+The Worker serves only `GET /api/catalog` and `GET /api/history` and forwards the snapshot time. It returns 503 if the snapshot is older than 20 minutes. Project-1 caches successful reads for 60 seconds, coalesces concurrent requests, and falls back to labeled stale cache or bundled data if the Worker fails. `GET /api/history-quality` reports data origin and match, date, duplicate and conflict counts.
 
-For a private Bombim00 repository, configure `BOMBIM_READ_TOKEN` as a server-side secret: use a fine-grained GitHub token restricted to that repository with **Contents: read-only**. The server fetches only the two files listed above through GitHub's read-only API; the token must never be included in browser code, logs, or this repository. With no token, the public raw URLs continue to be used. Test the live feed with the token before making the source private. A failed fetch still falls back to the labeled cached or bundled snapshot.
+If `PROJECT1_HISTORY_API` is unset, the server reads the same two files directly. For private source access in this mode, `BOMBIM_READ_TOKEN` is a server-side fine-grained token restricted to read-only Contents for Bombim00. The default Worker uses the public files and is independent of that token.
+
+Use `cloudflare/wrangler.jsonc` and `cloudflare/schema.sql` for the Worker and its D1 binding. The mirror serves the current history window from the source, which can be shorter than the requested historical range.
 
 ## Tests
 
-`npm test` runs local server tests; `node --check server.js` checks syntax. Actual source reachability must be verified from the deployment environment.
+`npm test` runs the local suite; CI uses Node.js 22 so it also runs the SQLite integration check. `node --check server.js` checks syntax. Verify source reachability from the deployment environment.
 
 ## Deployment
 
-Create a **new private GitHub repository** (not a fork that will sync writes to the original). Upload the contents of this directory, then deploy that new repository as a separate Node web service. Build command: none. Start command: `npm start`. Configure `PROJECT1_PASSWORD`, `PROJECT1_SESSION_SECRET`, `NODE_ENV=production`, `HOST=0.0.0.0`. Configure HTTPS and access controls on the hosting provider. Do not copy any GitHub write token from Bombim00.
+Deploy the private Project-1 repository as a separate Node web service. Build command: `npm test`. Start command: `npm start`. Set `HOST=0.0.0.0` for Render and use its HTTPS endpoint. Keep read credentials in server environment variables.
 
 ## Limitations
 
@@ -50,6 +51,18 @@ The initial release provides historical digit frequency, tens/units distribution
 - เลขดังรายสำนัก contains 17 manually reviewed entries from seven named publishers for four lotteries on 3–4 November 2026. It compares exact picks within the same lottery and date and links to the evidence. Running digits without a stated outcome category are displayed without scoring. Source collection times are labels, not independently certified publication timestamps. New picks are not collected automatically.
 
 The optional `POSTHOG_PROJECT_TOKEN` enables aggregate menu-selection events to the US PostHog ingestion host. No lottery selections, draw dates or user identities are attached to these events. Leave the variable empty to keep events disabled.
+
+## Guide studio and PNG runner
+
+Open `/studio` to enter numbers or import a draft from the formula tab. The studio exports a 900 × 1200 PNG and stores the saved layout in the current browser. The browser clears saved draft values after 24 hours on the next studio open or load.
+
+The automatic runner uses the same Canvas exporter. Install dependencies with `npm ci` and provide an installed Chromium via `GUIDE_CHROMIUM_PATH` if needed.
+
+```bash
+node guide-poll.mjs INPUT_JSON TRANSIENT_DIRECTORY [--watch]
+```
+
+The input provides `catalog`, `weekdays`, `confirmedDraws`, `guides` and optionally `template`. `--watch` reads updated input after each completed poll, with a default interval of 60 seconds. The runner only accepts independently confirmed current Bangkok draw dates within its per-draw window. It uses a dedicated transient directory supporting atomic hard links. Published pairs expire after 24 hours and the runner purges them on its next poll. A verified feed and an always-on host are required for production collection.
 
 ## Laos development snapshot pilot (v1.0.0)
 
