@@ -12,7 +12,7 @@ test('uses read-only authenticated GitHub API for a private history', async () =
   assert.equal(request.url, 'https://api.github.com/repos/jirapatza/Bombim00/contents/lottery_previous_results.json?ref=runtime-live');
   assert.equal(request.options.method, 'GET');
   assert.equal(request.options.headers.Authorization, 'Bearer test-token');
-  assert.equal(request.options.redirect, 'error');
+  assert.equal(request.options.redirect, 'manual');
 });
 
 test('public catalog fetch never sends a token', async () => {
@@ -26,5 +26,6 @@ test('public catalog fetch never sends a token', async () => {
 test('rejects unexpected sources and bad responses', async () => {
   await assert.rejects(readBombimSource('settings', 'main', 'test-token'), /Unknown data source/);
   await assert.rejects(readBombimSource('history', 'main', '', async () => ({ ok: false, status: 403 })), /HTTP 403/);
+  await assert.rejects(readBombimSource('history', 'main', 'test-token', async () => ({ ok: false, status: 302 })), /HTTP 302/);
   await assert.rejects(readBombimSource('history', 'main', '', async () => ({ ok: true, json: async () => ({}) })), /Unexpected upstream/);
 });

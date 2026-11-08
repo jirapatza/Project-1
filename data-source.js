@@ -8,10 +8,10 @@ export async function loadHistoricalData(key, {
   const clock = now();
   const cached = cache.get(key);
   if (cached && clock - cached.time >= 0 && clock - cached.time < ttlMs) {
-    return { data: cached.data, source: 'cache', fetchedAt: cached.time };
+    return { data: cached.data, source: 'cache', fetchedAt: cached.fetchedAt ?? cached.time };
   }
   async function fallback() {
-    if (cached) return { data: cached.data, source: 'stale-cache', fetchedAt: cached.time };
+    if (cached) return { data: cached.data, source: 'stale-cache', fetchedAt: cached.fetchedAt ?? cached.time };
     const data = await loadArchive(key);
     if (!Array.isArray(data)) throw new Error('Invalid bundled archive');
     return { data, source: 'archive', fetchedAt: null };
@@ -24,10 +24,12 @@ export async function loadHistoricalData(key, {
     const nextAttempt = retryUntil.get(key);
     if (typeof nextAttempt === 'number' && clock < nextAttempt) return fallback();
     try {
-      const data = await fetchUpstream(key);
+      const upstream = await fetchUpstream(key);
+      const data = Array.isArray(upstream) ? upstream : upstream?.data;
       if (!Array.isArray(data)) throw new Error('Invalid upstream response');
-      const fetchedAt = now();
-      cache.set(key, { data, time: fetchedAt });
+      const time = now();
+      const fetchedAt = upstream?.fetchedAt ?? time;
+      cache.set(key, { data, time, fetchedAt });
       retryUntil.delete(key);
       return { data, source: 'upstream', fetchedAt };
     } catch {

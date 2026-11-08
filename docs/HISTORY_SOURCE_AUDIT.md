@@ -1,5 +1,7 @@
 # Historical data source audit (2026-11-08)
 
+This records the pre-migration baseline at PR #15. See the current README for the Project-1 D1 mirror and deployment configuration.
+
 ## Scope
 Project-1 remains independent from Bombim00. This document covers read-only archival data and descriptive statistics only. Do not change notification workers, schedulers, or the source repository through this project.
 

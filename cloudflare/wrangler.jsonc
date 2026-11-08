@@ -1,0 +1,14 @@
+{
+  "name": "project1-history",
+  "main": "history-worker.js",
+  "compatibility_date": "2026-11-08",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": true, "head_sampling_rate": 1 } },
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "d1_databases": [{
+    "binding": "HISTORY_DB",
+    "database_name": "project1-history",
+    "database_id": "7ebf1155-d5d9-4ef1-8faa-11002b97649c"
+  }]
+}

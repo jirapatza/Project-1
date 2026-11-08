@@ -19,9 +19,4 @@ export function summarizeHistoryQuality(history, catalog, asOf) {
   };
 }
 
-export function bangkokDate(now = new Date()) {
-  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
-    throw new TypeError('Invalid date');
-  }
-  return new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+export { bangkokDate } from './public/history-records.js';

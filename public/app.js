@@ -1,36 +1,18 @@
+import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
 import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws } from './independent-formulas.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null};
-const norm=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/วีไอพี/g,'vip').replace(/นิคเคอิ/g,'นิเคอิ').replace(/หวยหุ้น|หวย|รอบ|\s|[.\-_()]/g,'');
-const aliases={thai_gov:['สลากกินแบ่งรัฐบาล'],gsb:['หวยออมสิน'],baac:['หวย ธ.ก.ส.'],lao_patthana:['หวยลาวพัฒนา','laoslotto','หวยลาว รอบ 20:30'],nikkei_morning:['หวยหุ้นนิคเคอิเช้า','หวยหุ้นนิเคอิเช้า'],nikkei_afternoon:['หวยหุ้นนิคเคอิบ่าย','หวยหุ้นนิเคอิบ่าย'],nikkei_vip_morning:['หวยหุ้นนิคเคอิ VIP เช้า','หวยหุ้นนิเคอิ VIP เช้า'],nikkei_vip_afternoon:['หวยหุ้นนิคเคอิ VIP บ่าย','หวยหุ้นนิเคอิ VIP บ่าย'],china_morning:['หวยหุ้นจีนเช้า'],china_afternoon:['หวยหุ้นจีนบ่าย'],china_vip_morning:['หวยหุ้นจีน VIP เช้า'],china_vip_afternoon:['หวยหุ้นจีน VIP บ่าย'],hangseng_morning:['หวยหุ้นฮั่งเส็งเช้า'],hangseng_afternoon:['หวยหุ้นฮั่งเส็งบ่าย'],hangseng_vip_morning:['หวยหุ้นฮั่งเส็ง VIP เช้า'],hangseng_vip_afternoon:['หวยหุ้นฮั่งเส็ง VIP บ่าย'],dowjones:['หวยหุ้นดาวโจนส์'],dowjones_star:['หวยหุ้นดาวโจนส์พิเศษ'],russia:['หวยหุ้นรัสเซีย'],singapore:['หวยหุ้นสิงคโปร์'],india:['หวยหุ้นอินเดีย'],taiwan:['หวยหุ้นไต้หวัน'],korea:['หวยหุ้นเกาหลี'],england:['หวยหุ้นอังกฤษ'],thai_stock_evening:['หวยหุ้นไทยเย็น'],hanoi_regular:['ฮานอยปกติ'],hanoi_special:['ฮานอยพิเศษ'],hanoi_vip:['ฮานอย VIP']};
-// Matching is intentionally conservative. Ambiguous records stay unmatched instead of being assigned incorrectly.
-function candidates(item){return new Set([item.name,...(aliases[item.id]||[])].map(norm));}
-function dateKey(row) {
-  const date = String(row.วันที่จัดรูปแบบ || row.draw_date || row.งวดวันที่ || '').trim();
-  const dotted = date.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  const thai = date.match(/^(\d{1,2}) (\S+) (\d{4})$/);
-  const months = 'มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม'.split(' ');
-  const month = thai ? months.indexOf(thai[2]) + 1 : 0;
-  const iso = month ? `${Number(thai[3]) - 543}-${String(month).padStart(2,'0')}-${thai[1].padStart(2,'0')}` : dotted ? `${dotted[3]}-${dotted[2]}-${dotted[1]}` : date;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
-  const parsed = new Date(iso);
-  return Number.isFinite(+parsed) && parsed.toISOString().slice(0, 10) === iso ? iso : '';
-}
 function indexHistory() {
-  const matches = new Map();
-  for (const item of state.catalog) {
-    for (const key of candidates(item).add(norm(item.id))) {
-      if (!key) continue;
-      if (!matches.has(key)) matches.set(key, new Set());
-      matches.get(key).add(item.id);
-    }
-  }
+  const matchLottery = buildLotteryMatcher(state.catalog);
+  const today = bangkokDate();
   state.byLottery = new Map(state.catalog.map(item => [item.id, []]));
   let unmatched = 0;
   for (const row of state.history) {
-    const ids = new Set([row.ชื่อหวย, row.หวย].flatMap(value => [...(matches.get(norm(value)) || [])]));
-    if (ids.size === 1) state.byLottery.get(ids.values().next().value).push(row);
-    else unmatched++;
+    const id = matchLottery(row);
+    const date = dateKey(row);
+    const status = row?.status ?? row?.สถานะผล;
+    if (!id) unmatched++;
+    else if (date && date <= today && isPublishedResult(status)) state.byLottery.get(id).push(row);
   }
   $('unmatched').textContent = unmatched;
   for (const rows of state.byLottery.values()) rows.sort((a,b) => dateKey(b).localeCompare(dateKey(a)));
@@ -141,7 +123,7 @@ async function load() {
   setupCatalog();
   if (state.catalog.length) select(state.catalog[0].id);
 }
-$('search').addEventListener('input',renderList);$('logout').addEventListener('click',async()=>{await fetch('/api/logout',{method:'POST'});location.href='/';});
+$('search').addEventListener('input',renderList);
 for (const id of ['historyDate','historyLimit']) $(id).addEventListener('change', () => select(state.active));
 
 const views = {home: 'homeView', calculate: 'calculateView', stats: 'statsView', publishers: 'publishersView'};
@@ -314,7 +296,10 @@ async function showCalculation() {
     if ($('calculateLottery').value === lottery) $('checkSummary').textContent = 'โหลดผลทดสอบไม่ได้ กรุณาลองอีกครั้ง';
   }
 }
+const formulaToStudio = $('formulaToStudio');
 function showIndependentFormula() {
+  formulaToStudio.disabled = true;
+  formulaToStudio.onclick = null;
   const lottery = $('calculateLottery').value;
   const date = $('formulaDate').value;
   const laoOption = [...$('formulaChoice').options].find(option => option.value === 'lao_divide_three');
@@ -346,6 +331,22 @@ function showIndependentFormula() {
     if (result.triples.length) parts.push(`3 ตัว ${result.triples.join(', ')}`);
     if (result.calculation) parts.push(`วิธีคิด ${result.calculation}`, 'นับเลขถัดจาก 9 เป็น 0', 'ใช้งวดล่าสุดที่มีข้อมูล กรุณาตรวจว่าเป็นงวดก่อนหน้าจริง');
     $('formulaPrediction').textContent = parts.join(' · ');
+    const lotteryName = state.catalog.find(item => item.id === lottery)?.name;
+    if (lotteryName) {
+      formulaToStudio.disabled = false;
+      formulaToStudio.onclick = () => {
+        try {
+          sessionStorage.setItem('project1-formula-draft', JSON.stringify({
+            lotteryName, drawDate: date, standout: result.primary.join(' '),
+            twoDigit: result.pairs.join(' '), threeDigit: result.triples.join(' '),
+            running: '', expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+          }));
+          location.href = '/studio';
+        } catch {
+          $('formulaStatus').textContent = 'ส่งผลไปห้องทำใบแนวไม่ได้ เบราว์เซอร์ไม่อนุญาตให้เก็บข้อมูลชั่วคราว';
+        }
+      };
+    }
   }
   const limit = Number($('formulaLimit').value);
   const backtest = backtestFormula(id, draws, limit);
