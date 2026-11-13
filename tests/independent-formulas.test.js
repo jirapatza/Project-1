@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formulaOptions, calculateFormula, backtestFormula, validDrawDate, resolveFormulaDraws } from '../public/independent-formulas.js';
+import { formulaOptions, calculateFormula, backtestFormula, validDrawDate, resolveFormulaDraws, summarizeFormulaBacktest } from '../public/independent-formulas.js';
 
 test('weekday formula works without results and uses the selected draw weekday', () => {
   assert.equal(formulaOptions.length, 5);
@@ -111,4 +111,33 @@ test('numeric result fields cannot be treated as strings or silently lose leadin
   assert.equal(checked[0].top3, null);
   assert.equal(checked[0].tripleHit, null);
   assert.equal(typeof checked[0].pairHit, 'boolean');
+});
+
+test('backtest summary compares observed hits with a candidate-count random baseline', () => {
+  const summary = summarizeFormulaBacktest([
+    { primaryHit: true, pairHit: true, tripleHit: false, prediction: { primary: [1, 2], pairs: ['12', '21'], triples: ['123', '321'] } },
+    { primaryHit: false, pairHit: false, tripleHit: null, prediction: { primary: [0, 1], pairs: ['00'], triples: [] } },
+    { primaryHit: null, pairHit: null, tripleHit: true, prediction: { primary: [1, 2], pairs: [], triples: ['001', '002'] } },
+  ]);
+  assert.equal(summary.primary.hits, 1);
+  assert.equal(summary.primary.trials, 2);
+  assert.equal(summary.primary.rate, 0.5);
+  assert.ok(Math.abs(summary.primary.expectedHits - 0.72) < 1e-12);
+  assert.ok(Math.abs(summary.primary.expectedRate - 0.36) < 1e-12);
+  assert.equal(summary.pairs.hits, 1);
+  assert.equal(summary.pairs.trials, 2);
+  assert.ok(Math.abs(summary.pairs.expectedHits - 0.03) < 1e-12);
+  assert.ok(Math.abs(summary.pairs.expectedRate - 0.015) < 1e-12);
+  assert.equal(summary.triples.hits, 1);
+  assert.equal(summary.triples.trials, 2);
+  assert.ok(Math.abs(summary.triples.expectedHits - 0.004) < 1e-12);
+  assert.ok(Math.abs(summary.triples.expectedRate - 0.002) < 1e-12);
+});
+
+test('backtest summary returns empty rates when no result is scorable', () => {
+  const summary = summarizeFormulaBacktest([{ primaryHit: null, pairHit: null, tripleHit: null, prediction: { primary: [], pairs: [], triples: [] } }]);
+  assert.equal(summary.primary.trials, 0);
+  assert.equal(summary.primary.rate, null);
+  assert.equal(summary.pairs.expectedRate, null);
+  assert.equal(summary.triples.expectedRate, null);
 });

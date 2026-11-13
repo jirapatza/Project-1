@@ -1,5 +1,5 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
-import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws } from './independent-formulas.js';
+import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
 import { describeHistoryAvailability } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null};
@@ -310,6 +310,7 @@ function showIndependentFormula() {
   $('formulaRows').replaceChildren();
   $('formulaPrediction').textContent = '';
   $('formulaHistoryStatus').textContent = '';
+  $('formulaSummary').textContent = '';
   if (!lottery || !state.byLottery?.has(lottery)) {
     $('formulaStatus').textContent = state.catalogFailed ? 'โหลดทะเบียนหวยไม่สำเร็จ' : 'กำลังโหลดรายการหวย';
     return;
@@ -351,6 +352,12 @@ function showIndependentFormula() {
   }
   const limit = Number($('formulaLimit').value);
   const backtest = backtestFormula(id, draws, limit);
+  const summary = summarizeFormulaBacktest(backtest);
+  const describe = metric => metric.trials ?
+    metric.hits + '/' + metric.trials + ' (' + (metric.rate * 100).toFixed(1) + '%)' +
+    ' · คาดสุ่ม ' + metric.expectedHits.toFixed(2) + ' ครั้ง (' +
+    (metric.expectedRate * 100).toFixed(1) + '%)' : 'ไม่มีข้อมูล';
+  $('formulaSummary').textContent = 'เลขเด่น: ' + describe(summary.primary) + ' · 2 ตัวตรง: ' + describe(summary.pairs) + ' · 3 ตัวตรง: ' + describe(summary.triples);
   const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ' : state.historyArchived ? 'ข้อมูลสำรอง' : 'ข้อมูลจากระบบแจ้งผล';
   const conflicts = draws.filter(row => row.conflict).length;
   $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · ตรวจได้ ${backtest.length}/${limit} งวด`;

@@ -122,3 +122,32 @@ export function backtestFormula(id, history, limit = 10) {
   }
   return results.reverse();
 }
+
+function summarizeMetric(rows, hitKey, chanceForRow) {
+  const tested = rows.filter(row => typeof row[hitKey] === 'boolean');
+  const hits = tested.filter(row => row[hitKey]).length;
+  const expectedHits = tested.reduce((total, row) => total + chanceForRow(row), 0);
+  return { hits, trials: tested.length, rate: tested.length ? hits / tested.length : null,
+    expectedHits, expectedRate: tested.length ? expectedHits / tested.length : null };
+}
+
+// Compare observed backtest hits with a simple uniform-random baseline.
+export function summarizeFormulaBacktest(rows) {
+  return {
+    primary: summarizeMetric(rows, 'primaryHit', row => {
+      const digits = new Set((row.prediction?.primary ?? []).map(Number)
+        .filter(digit => Number.isInteger(digit) && digit >= 0 && digit <= 9));
+      return 1 - ((10 - digits.size) / 10) ** 2;
+    }),
+    pairs: summarizeMetric(rows, 'pairHit', row => {
+      const candidates = new Set((row.prediction?.pairs ?? []).filter(value =>
+        typeof value === 'string' && value.length === 2 && [...value].every(digit => digit >= '0' && digit <= '9')));
+      return candidates.size / 100;
+    }),
+    triples: summarizeMetric(rows, 'tripleHit', row => {
+      const candidates = new Set((row.prediction?.triples ?? []).filter(value =>
+        typeof value === 'string' && value.length === 3 && [...value].every(digit => digit >= '0' && digit <= '9')));
+      return candidates.size / 1000;
+    }),
+  };
+}
