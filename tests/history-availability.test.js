@@ -28,17 +28,17 @@ test('upstream errors override success and invalid windows throw', () => {
 
 test('shows the source snapshot time in Bangkok local time', () => {
   const status = describeHistoryFreshness('upstream', '2026-11-13T17:12:00.000Z');
-  assert.match(status, /ต้นทางอัปเดตล่าสุด/);
+  assert.match(status, /เวลาเก็บ snapshot/);
   assert.match(status, /00:12/);
 });
 
 test('labels stale cache and bundled archive without implying freshness', () => {
   const stale = describeHistoryFreshness('stale-cache', '2026-11-13T17:12:00.000Z');
-  assert.match(stale, /^สำเนาเดิม · ต้นทางอัปเดตล่าสุด/);
-  assert.match(describeHistoryFreshness('archive', null), /^ข้อมูลสำรองในแอป · ไม่ทราบเวลาอัปเดตต้นทาง$/);
+  assert.match(stale, /^สำเนาเดิม · เวลาเก็บ snapshot/);
+  assert.match(describeHistoryFreshness('archive', null), /^ข้อมูลสำรองในแอป · ไม่ทราบเวลาเก็บ snapshot$/);
 });
 
 test('handles missing or invalid snapshot timestamps explicitly', () => {
-  assert.equal(describeHistoryFreshness('cache', 'not-a-date'), 'ไม่ทราบเวลาอัปเดตต้นทาง');
+  assert.equal(describeHistoryFreshness('cache', 'not-a-date'), 'ไม่ทราบเวลาเก็บ snapshot');
   assert.equal(describeHistoryFreshness('other', null), '');
 });

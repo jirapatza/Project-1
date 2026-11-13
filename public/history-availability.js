@@ -23,15 +23,15 @@ export function describeHistoryAvailability(validDraws, requestedDraws, sourceFa
 
 // Format the data snapshot time for people using the dashboard in Thailand.
 export function describeHistoryFreshness(source, fetchedAt) {
-  if (source === 'archive') return 'ข้อมูลสำรองในแอป · ไม่ทราบเวลาอัปเดตต้นทาง';
+  if (source === 'archive') return 'ข้อมูลสำรองในแอป · ไม่ทราบเวลาเก็บ snapshot';
   if (!['upstream', 'cache', 'stale-cache'].includes(source)) return '';
   const instant = typeof fetchedAt === 'string' ? Date.parse(fetchedAt) : NaN;
-  if (!Number.isFinite(instant)) return 'ไม่ทราบเวลาอัปเดตต้นทาง';
+  if (!Number.isFinite(instant)) return 'ไม่ทราบเวลาเก็บ snapshot';
   const timestamp = new Intl.DateTimeFormat('th-TH', {
     timeZone: 'Asia/Bangkok',
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(instant);
-  const prefix = source === 'stale-cache' ? 'สำเนาเดิม · ต้นทางอัปเดตล่าสุด' : 'ต้นทางอัปเดตล่าสุด';
+  const prefix = source === 'stale-cache' ? 'สำเนาเดิม · เวลาเก็บ snapshot' : 'เวลาเก็บ snapshot';
   return prefix + ' ' + timestamp + ' น.';
 }
