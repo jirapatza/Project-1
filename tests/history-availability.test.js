@@ -38,7 +38,9 @@ test('labels stale cache and bundled archive without implying freshness', () => 
   assert.match(describeHistoryFreshness('archive', null), /^ข้อมูลสำรองในแอป · ไม่ทราบเวลาเก็บ snapshot$/);
 });
 
-test('handles missing or invalid snapshot timestamps explicitly', () => {
-  assert.equal(describeHistoryFreshness('cache', 'not-a-date'), 'ไม่ทราบเวลาเก็บ snapshot');
+test('handles missing or invalid snapshot timestamps without hiding stale state', () => {
+  assert.equal(describeHistoryFreshness('cache', 'not-a-date'), 'เวลาเก็บ snapshot ไม่ทราบ');
+  assert.equal(describeHistoryFreshness('stale-cache', null), 'สำเนาเดิม · เวลาเก็บ snapshot ไม่ทราบ');
+  assert.equal(describeHistoryFreshness('stale-cache', 'not-a-date'), 'สำเนาเดิม · เวลาเก็บ snapshot ไม่ทราบ');
   assert.equal(describeHistoryFreshness('other', null), '');
 });
