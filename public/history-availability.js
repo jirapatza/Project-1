@@ -19,3 +19,19 @@ export function describeHistoryAvailability(validDraws, requestedDraws, sourceFa
     message: `มีข้อมูลสำหรับช่วง ${requestedDraws} งวดที่เลือก สถิติคำนวณจากงวดที่ตรวจสอบได้`,
   };
 }
+
+
+// Format the data snapshot time for people using the dashboard in Thailand.
+export function describeHistoryFreshness(source, fetchedAt) {
+  if (source === 'archive') return 'ข้อมูลสำรองในแอป · ไม่ทราบเวลาเก็บ snapshot';
+  if (!['upstream', 'cache', 'stale-cache'].includes(source)) return '';
+  const prefix = source === 'stale-cache' ? 'สำเนาเดิม · เวลาดึงข้อมูลล่าสุด' : 'เวลาดึงข้อมูลล่าสุด';
+  const instant = typeof fetchedAt === 'string' ? Date.parse(fetchedAt) : NaN;
+  if (!Number.isFinite(instant)) return prefix + ' ไม่ทราบ';
+  const timestamp = new Intl.DateTimeFormat('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(instant);
+  return prefix + ' ' + timestamp + ' น.';
+}

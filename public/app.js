@@ -1,8 +1,8 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
 import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
-import { describeHistoryAvailability } from './history-availability.js';
+import { describeHistoryAvailability, describeHistoryFreshness } from './history-availability.js';
 const $=id=>document.getElementById(id);
-const state={catalog:[],history:[],active:null};
+const state={catalog:[],history:[],active:null,historySource:null,historyFetchedAt:null};
 function indexHistory() {
   const matchLottery = buildLotteryMatcher(state.catalog);
   const today = bangkokDate();
@@ -66,7 +66,7 @@ function select(id) {
   $('latest').textContent = rows.length ? dateKey(rows[0]) : 'ไม่มีข้อมูล';
   const availability = describeHistoryAvailability(rows.length, Number($('historyLimit').value), state.historyFailed);
   $('status').textContent = availability.status;
-  $('message').textContent = availability.message + (rows.length && state.historyArchived ? ' · ใช้สำเนาผลย้อนหลัง' : '');
+  $('message').textContent = [availability.message, describeHistoryFreshness(state.historySource, state.historyFetchedAt)].filter(Boolean).join(' · ');
   const counts = Array(10).fill(0);
   const tens = Array(10).fill(0);
   const gaps = Array(10).fill(0);
@@ -100,13 +100,16 @@ async function fetchList(path) {
   const list = await response.json();
   if (!Array.isArray(list)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
   const origin = response.headers.get('X-Project1-Data');
-  return {rows: list, archived: origin === 'archive' || origin === 'stale-cache'};
+  const fetchedAt = response.headers.get('X-Project1-Fetched-At');
+  return {rows: list, source: origin, fetchedAt, archived: origin === 'archive' || origin === 'stale-cache'};
 }
 async function load() {
   const [catalog, history] = await Promise.allSettled([fetchList('/api/catalog'), fetchList('/api/history')]);
   state.historyFailed = history.status === 'rejected';
   state.history = history.value?.rows ?? [];
   state.historyArchived = history.value?.archived ?? false;
+  state.historySource = history.value?.source ?? null;
+  state.historyFetchedAt = history.value?.fetchedAt ?? null;
   $('records').textContent = state.historyFailed ? '—' : state.history.length;
   if (catalog.status === 'rejected') {
     state.catalogFailed = true;
@@ -159,8 +162,9 @@ function setupCatalog() {
     return tableRow([name, dateKey(row), row.เลขบน_3_ตัว || '—', twoDigits(row.เลขล่าง_2_ตัว) || '—',
       twoDigits(row.เลขท้าย_2_ตัว) || '—', max ? `${leaders.join(', ')} (${max}/${recent.length} งวด)` : '—']);
   }));
-  $('trendStatus').textContent = state.historyFailed ? 'โหลดผลย้อนหลังจาก Bombim00 ไม่สำเร็จ' : latest.length ?
+  const trendMessage = state.historyFailed ? 'โหลดผลย้อนหลังจาก Bombim00 ไม่สำเร็จ' : latest.length ?
     `ผลล่าสุดและความถี่หลักหน่วยจากข้อมูลไม่เกิน 10 งวดต่อหวย${state.historyArchived ? ' · ใช้สำเนาผลย้อนหลังจาก Bombim00' : ''}` : 'ยังไม่มีผลย้อนหลังที่จับคู่ได้';
+  $('trendStatus').textContent = [trendMessage, describeHistoryFreshness(state.historySource, state.historyFetchedAt)].filter(Boolean).join(' · ');
   renderPublishers();
   if (!$('calculateView').hidden) { showCalculation(); showIndependentFormula(); }
 }
