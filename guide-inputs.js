@@ -27,7 +27,7 @@ export function prepareGuideInput({ row, date, catalog, history, external, obser
   const numbers = {
     standout: (external?.numbers.standout.length >= 2 ? external.numbers.standout : fallbackStandout).slice(0, 2),
     twoDigit: (external ? external.numbers.twoDigit : fallback('pairs')).slice(0, 8),
-    threeDigit: (external ? external.numbers.threeDigit : fallback('triples')).slice(0, 6),
+    threeDigit: (external ? external.numbers.threeDigit : fallback('triples')).slice(0, 4),
     running: (external?.numbers.running.length >= 2 ? external.numbers.running : fallbackStandout).slice(0, 2),
   };
   const guide = {
