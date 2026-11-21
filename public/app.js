@@ -1,5 +1,5 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
-import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
+import { formulaOptions, calculateFormula, formulaBacktestReport, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
 import { describeHistoryAvailability } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null};
@@ -351,8 +351,9 @@ function showIndependentFormula() {
     }
   }
   const limit = Number($('formulaLimit').value);
-  const backtest = backtestFormula(id, draws, limit);
-  const summary = summarizeFormulaBacktest(backtest);
+  const backtest = formulaBacktestReport(id, draws, limit);
+  const scored = backtest.filter(row => !row.reason);
+  const summary = summarizeFormulaBacktest(scored);
   const describe = metric => metric.trials ?
     metric.hits + '/' + metric.trials + ' (' + (metric.rate * 100).toFixed(1) + '%)' +
     ' · คาดสุ่ม ' + metric.expectedHits.toFixed(2) + ' ครั้ง (' +
@@ -360,11 +361,11 @@ function showIndependentFormula() {
   $('formulaSummary').textContent = 'เลขเด่น: ' + describe(summary.primary) + ' · 2 ตัวตรง: ' + describe(summary.pairs) + ' · 3 ตัวตรง: ' + describe(summary.triples);
   const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ' : state.historyArchived ? 'ข้อมูลสำรอง' : 'ข้อมูลจากระบบแจ้งผล';
   const conflicts = draws.filter(row => row.conflict).length;
-  $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · ตรวจได้ ${backtest.length}/${limit} งวด`;
+  $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · มีข้อมูลในช่วง ${backtest.length}/${limit} งวด · ตรวจได้ ${scored.length}/${backtest.length} งวด`;
   $('formulaRows').replaceChildren(...backtest.map(row => tableRow([
-    row.date, row.prediction.primary.join(', '), row.primaryHit === null ? 'ไม่มีข้อมูล' : row.primaryHit ? 'ตรง' : 'ไม่ตรง',
-    row.prediction.pairs.join(', ') || '—', row.bottom2 ?? '—', !row.prediction.pairs.length ? 'ไม่ใช้สูตรนี้' : row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
-    row.prediction.triples.join(', ') || '—', row.top3 ?? '—', !row.prediction.triples.length ? 'ไม่ใช้สูตรนี้' : row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
+    row.date, row.reason ?? 'ตรวจแล้ว', row.prediction?.primary.join(', ') || '—', row.primaryHit == null ? '—' : row.primaryHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction?.pairs.join(', ') || '—', row.bottom2 ?? '—', !row.prediction ? '—' : !row.prediction.pairs.length ? 'ไม่ใช้สูตรนี้' : row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction?.triples.join(', ') || '—', row.top3 ?? '—', !row.prediction ? '—' : !row.prediction.triples.length ? 'ไม่ใช้สูตรนี้' : row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
   ])));
 }
 const bangkokToday = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok' }).format(new Date());

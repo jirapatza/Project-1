@@ -105,22 +105,39 @@ export function calculateFormula(id, date, history) {
   return { primary, secondary, pairs, triples, usedDraws, latestDraw };
 }
 
-export function backtestFormula(id, history, limit = 10) {
+export function formulaBacktestReport(id, history, limit = 10) {
   const rows = [...history].filter(row => validDrawDate(row.date)).sort((a, b) => a.date.localeCompare(b.date));
   const results = [];
   const start = Math.max(0, rows.length - limit);
   for (let i = start; i < rows.length; i++) {
     const row = rows[i];
-    if (row.conflict || (!validBottom(row.bottom2) && !validTop(row.top3))) continue;
+    const draw = { date: row.date, bottom2: validBottom(row.bottom2) ? row.bottom2 : null,
+      top3: validTop(row.top3) ? row.top3 : null };
+    if (row.conflict) {
+      results.push({ date: row.date, reason: 'ผลงวดนี้ขัดกัน' });
+      continue;
+    }
+    if (!draw.bottom2 && !draw.top3) {
+      results.push({ ...draw, reason: 'ไม่มีผลรางวัลที่ใช้ตรวจได้' });
+      continue;
+    }
     const prediction = calculateFormula(id, row.date, rows.slice(0, i));
-    if (prediction.error) continue;
-    results.push({ date: row.date, bottom2: validBottom(row.bottom2) ? row.bottom2 : null,
-      top3: validTop(row.top3) ? row.top3 : null, prediction,
-      primaryHit: validBottom(row.bottom2) ? prediction.primary.some(d => row.bottom2.includes(String(d))) : null,
-      pairHit: validBottom(row.bottom2) && prediction.pairs.length ? prediction.pairs.includes(row.bottom2) : null,
-      tripleHit: validTop(row.top3) && prediction.triples.length ? prediction.triples.includes(row.top3) : null });
+    if (prediction.error) {
+      results.push({ ...draw, reason: prediction.error });
+      continue;
+    }
+    const primaryHit = draw.bottom2 ? prediction.primary.some(d => draw.bottom2.includes(String(d))) : null;
+    const pairHit = draw.bottom2 && prediction.pairs.length ? prediction.pairs.includes(draw.bottom2) : null;
+    const tripleHit = draw.top3 && prediction.triples.length ? prediction.triples.includes(draw.top3) : null;
+    const reason = primaryHit === null && pairHit === null && tripleHit === null ?
+      'ไม่มีผลรางวัลที่สูตรนี้ใช้ตรวจ' : null;
+    results.push({ ...draw, prediction, primaryHit, pairHit, tripleHit, reason });
   }
   return results.reverse();
+}
+
+export function backtestFormula(id, history, limit = 10) {
+  return formulaBacktestReport(id, history, limit).filter(row => row.prediction).map(({ reason, ...row }) => row);
 }
 
 function summarizeMetric(rows, hitKey, chanceForRow) {
