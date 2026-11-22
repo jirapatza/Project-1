@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { describeHistoryAvailability } from '../public/history-availability.js';
+import { describeHistoryAvailability, describeHistoryFreshness } from '../public/history-availability.js';
 
 test('missing draws never look like complete data', () => {
   assert.deepEqual(describeHistoryAvailability(0, 10), {
@@ -23,4 +23,26 @@ test('upstream errors override success and invalid windows throw', () => {
   assert.equal(describeHistoryAvailability(30, 30, true).status, 'โหลดไม่สำเร็จ');
   assert.throws(() => describeHistoryAvailability(-1, 10), TypeError);
   assert.throws(() => describeHistoryAvailability(1, 3), TypeError);
+});
+
+
+test('shows the last fetch time in Bangkok local time for upstream and cache', () => {
+  for (const source of ['upstream', 'cache']) {
+    const status = describeHistoryFreshness(source, '2026-11-13T17:12:00.000Z');
+    assert.match(status, /^เวลาดึงข้อมูลล่าสุด/);
+    assert.match(status, /00:12/);
+  }
+});
+
+test('labels stale cache and bundled archive without implying freshness', () => {
+  const stale = describeHistoryFreshness('stale-cache', '2026-11-13T17:12:00.000Z');
+  assert.match(stale, /^สำเนาเดิม · เวลาดึงข้อมูลล่าสุด/);
+  assert.match(describeHistoryFreshness('archive', null), /^ข้อมูลสำรองในแอป · ไม่ทราบเวลาเก็บ snapshot$/);
+});
+
+test('handles missing or invalid snapshot timestamps without hiding stale state', () => {
+  assert.equal(describeHistoryFreshness('cache', 'not-a-date'), 'เวลาดึงข้อมูลล่าสุด ไม่ทราบ');
+  assert.equal(describeHistoryFreshness('stale-cache', null), 'สำเนาเดิม · เวลาดึงข้อมูลล่าสุด ไม่ทราบ');
+  assert.equal(describeHistoryFreshness('stale-cache', 'not-a-date'), 'สำเนาเดิม · เวลาดึงข้อมูลล่าสุด ไม่ทราบ');
+  assert.equal(describeHistoryFreshness('other', null), '');
 });
