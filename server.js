@@ -5,9 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { calculate, version } from './lao-snapshot.mjs';
 import { archivedResults, publishers } from './publishers.js';
-import { readBombimSource } from './bombim-source.js';
-import { readHistoryApi } from './history-api-source.js';
-import { publicSnapshot } from './snapshot-validation.js';
+import { readHistorySource } from './history-api-source.js';
 import { loadHistoricalData } from './data-source.js';
 import { summarizeHistoryQuality, bangkokDate } from './history-quality.js';
 import { summarizeHistoryCoverage } from './history-coverage.js';
@@ -19,9 +17,9 @@ const PORT = Number(process.env.PORT || 4173);
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
 const historyApi = process.env.PROJECT1_HISTORY_API?.trim();
 const guideApi = process.env.PROJECT1_GUIDE_API?.trim();
-const readSource = historyApi
-  ? key => readHistoryApi(key, historyApi)
-  : async key => publicSnapshot(key, await readBombimSource(key, branch, process.env.BOMBIM_READ_TOKEN?.trim()));
+const readSource = key => readHistorySource(key, {
+  historyApi, branch, token: process.env.BOMBIM_READ_TOKEN?.trim(),
+});
 const cache = new Map();
 const retryUntil = new Map();
 const inFlight = new Map();

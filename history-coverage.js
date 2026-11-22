@@ -44,6 +44,12 @@ export function summarizeHistoryCoverage(history, catalog, asOf) {
   return {
     asOf, catalogCount: catalog.length, historyRows: history.length,
     matchedLotteries: lotteries.length - missingLotteries.length,
+    missingCount: missingLotteries.length,
+    readinessCounts: {
+      last10: lotteries.filter(item => item.readiness.last10).length,
+      last20: lotteries.filter(item => item.readiness.last20).length,
+      last30: lotteries.filter(item => item.readiness.last30).length,
+    },
     missingLotteries, lotteries, unmatchedSources, acceptedDraws: accepted.length,
     rejectedRows: rejected.length, rejectionReasons,
     // A matched source label is not proof of independent result verification.

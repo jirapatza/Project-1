@@ -56,3 +56,19 @@ test('does not assign an unregistered special round to STAR', () => {
  ], [{ id: 'dowjones_star', name: 'ดาวโจนส์ STAR' }], '2026-11-08');
  assert.deepEqual(result.rejected, [{ index: 0, reason: 'unknown_lottery' }]);
 });
+
+test('maps the legacy Hanoi special source key and withholds conflicting round labels', () => {
+ const lotteries = [
+  { id: 'hanoi_special', name: 'ฮานอยพิเศษ' },
+  { id: 'hanoi_regular', name: 'ฮานอยปกติ' },
+  { id: 'hanoi_vip', name: 'ฮานอย VIP' },
+  { id: 'nikkei_vip_morning', name: 'นิเคอิเช้า VIP' },
+ ];
+ const result = auditHistoricalRows([
+  row('2026-11-02', '007', '03', { หวย: 'hanoylottospecial', ชื่อหวย: 'หวยฮานอย รอบ 17:30' }),
+  row('2026-11-03', '007', '03', { หวย: 'hanoylottospecial', ชื่อหวย: 'ฮานอยปกติ' }),
+  row('2026-11-03', '007', '03', { หวย: 'หวยหุ้นนิคเคอิ VISA เช้า' }),
+ ], lotteries, '2026-11-08');
+ assert.deepEqual(result.accepted.map(item => item.id), ['hanoi_special']);
+ assert.deepEqual(result.rejected.map(item => item.reason), ['unknown_lottery', 'unknown_lottery']);
+});

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formulaOptions, calculateFormula, backtestFormula, validDrawDate, resolveFormulaDraws, summarizeFormulaBacktest } from '../public/independent-formulas.js';
+import { formulaOptions, calculateFormula, backtestFormula, validDrawDate, resolveFormulaDraws, summarizeFormulaBacktest, formulaBacktestReport } from '../public/independent-formulas.js';
 
 test('weekday formula works without results and uses the selected draw weekday', () => {
   assert.equal(formulaOptions.length, 5);
@@ -140,4 +140,30 @@ test('backtest summary returns empty rates when no result is scorable', () => {
   assert.equal(summary.primary.rate, null);
   assert.equal(summary.pairs.expectedRate, null);
   assert.equal(summary.triples.expectedRate, null);
+});
+
+test('backtest report explains each unscorable draw without filling the window with older draws', () => {
+  const draws = [
+    { date: '2026-11-01', top3: '006', bottom2: '18' },
+    { date: '2026-11-02', top3: '006', bottom2: '18' },
+    { date: '2026-11-03', top3: '006' },
+    { date: '2026-11-04', top3: '123', bottom2: '45' },
+    { date: '2026-11-05' },
+    { date: '2026-11-06', conflict: true },
+  ];
+  const report = formulaBacktestReport('lao_divide_three', draws, 4);
+  assert.deepEqual(report.map(row => row.date), [
+    '2026-11-06', '2026-11-05', '2026-11-04', '2026-11-03',
+  ]);
+  assert.match(report[0].reason, /ขัดกัน/);
+  assert.match(report[1].reason, /ไม่มีผลรางวัล/);
+  assert.match(report[2].reason, /งวดก่อนหน้า/);
+  assert.equal(report[2].bottom2, '45');
+  assert.match(report[3].reason, /สูตรนี้ใช้ตรวจ/);
+  assert.equal(report[3].primaryHit, null);
+  assert.equal(summarizeFormulaBacktest(report).primary.trials, 0);
+
+  const extended = formulaBacktestReport('lao_divide_three', draws, 5);
+  assert.equal(extended.at(-1).reason, null);
+  assert.equal(summarizeFormulaBacktest(extended).primary.trials, 1);
 });

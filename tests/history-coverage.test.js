@@ -21,6 +21,8 @@ test('reports actual catalog coverage without mistaking unknown source codes for
   assert.equal(result.catalogCount, 3);
   assert.equal(result.historyRows, 5);
   assert.equal(result.matchedLotteries, 2);
+  assert.equal(result.missingCount, 1);
+  assert.deepEqual(result.readinessCounts, { last10: 0, last20: 0, last30: 0 });
   assert.deepEqual(result.missingLotteries, [
     { id: 'empty', name: 'Empty', validDraws: 0, firstDraw: null, lastDraw: null,
     readiness: { last10: false, last20: false, last30: false } },
@@ -54,6 +56,8 @@ test('readiness reflects unique verified-shape historical rows and unknown sourc
     row('not-in-catalog', '2026-11-08'),
   ];
   const report = summarizeHistoryCoverage(data, catalog, '2026-11-08');
+  assert.equal(report.missingCount, 1);
+  assert.deepEqual(report.readinessCounts, { last10: 1, last20: 1, last30: 1 });
   assert.deepEqual(report.lotteries[0].readiness, {
     last10: true, last20: true, last30: true,
   });

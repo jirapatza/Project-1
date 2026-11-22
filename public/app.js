@@ -1,5 +1,5 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
-import { formulaOptions, calculateFormula, backtestFormula, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
+import { formulaOptions, calculateFormula, formulaBacktestReport, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
 import { describeHistoryAvailability, describeHistoryFreshness } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null,historySource:null,historyFetchedAt:null};
@@ -103,6 +103,24 @@ async function fetchList(path) {
   const fetchedAt = response.headers.get('X-Project1-Fetched-At');
   return {rows: list, source: origin, fetchedAt, archived: origin === 'archive' || origin === 'stale-cache'};
 }
+async function loadHistoryCoverage() {
+  const status = $('historyCoverageStatus');
+  try {
+    const response = await fetch('/api/history-coverage');
+    if (!response.ok) throw new Error('History coverage unavailable');
+    const { catalogCount, readinessCounts } = await response.json();
+    const windows = [10, 20, 30];
+    const counts = windows.map(size => readinessCounts?.['last' + size]);
+    if (!Number.isInteger(catalogCount) || catalogCount < 0 ||
+        counts.some(count => !Number.isInteger(count) || count < 0 || count > catalogCount)) {
+      throw new Error('Invalid history coverage');
+    }
+    status.textContent = 'รายการหวยที่มีข้อมูลย้อนหลังเพียงพอ · ' +
+      windows.map((size, index) => size + ' งวด ' + counts[index] + '/' + catalogCount + ' รายการ').join(' · ');
+  } catch {
+    status.textContent = 'โหลดสรุปจำนวนงวดย้อนหลังไม่สำเร็จ';
+  }
+}
 async function load() {
   const [catalog, history] = await Promise.allSettled([fetchList('/api/catalog'), fetchList('/api/history')]);
   state.historyFailed = history.status === 'rejected';
@@ -126,6 +144,7 @@ async function load() {
   renderList();
   setupCatalog();
   if (state.catalog.length) select(state.catalog[0].id);
+  if (!state.historyFailed) void loadHistoryCoverage();
 }
 $('search').addEventListener('input',renderList);
 for (const id of ['historyDate','historyLimit']) $(id).addEventListener('change', () => select(state.active));
@@ -163,7 +182,7 @@ function setupCatalog() {
       twoDigits(row.เลขท้าย_2_ตัว) || '—', max ? `${leaders.join(', ')} (${max}/${recent.length} งวด)` : '—']);
   }));
   const trendMessage = state.historyFailed ? 'โหลดผลย้อนหลังจาก Bombim00 ไม่สำเร็จ' : latest.length ?
-    `ผลล่าสุดและความถี่หลักหน่วยจากข้อมูลไม่เกิน 10 งวดต่อหวย${state.historyArchived ? ' · ใช้สำเนาผลย้อนหลังจาก Bombim00' : ''}` : 'ยังไม่มีผลย้อนหลังที่จับคู่ได้';
+    'ผลล่าสุดและความถี่หลักหน่วยจากข้อมูลไม่เกิน 10 งวดต่อหวย' : 'ยังไม่มีผลย้อนหลังที่จับคู่ได้';
   $('trendStatus').textContent = [trendMessage, describeHistoryFreshness(state.historySource, state.historyFetchedAt)].filter(Boolean).join(' · ');
   renderPublishers();
   if (!$('calculateView').hidden) { showCalculation(); showIndependentFormula(); }
@@ -355,20 +374,21 @@ function showIndependentFormula() {
     }
   }
   const limit = Number($('formulaLimit').value);
-  const backtest = backtestFormula(id, draws, limit);
-  const summary = summarizeFormulaBacktest(backtest);
+  const backtest = formulaBacktestReport(id, draws, limit);
+  const scored = backtest.filter(row => !row.reason);
+  const summary = summarizeFormulaBacktest(scored);
   const describe = metric => metric.trials ?
     metric.hits + '/' + metric.trials + ' (' + (metric.rate * 100).toFixed(1) + '%)' +
     ' · คาดสุ่ม ' + metric.expectedHits.toFixed(2) + ' ครั้ง (' +
     (metric.expectedRate * 100).toFixed(1) + '%)' : 'ไม่มีข้อมูล';
   $('formulaSummary').textContent = 'เลขเด่น: ' + describe(summary.primary) + ' · 2 ตัวตรง: ' + describe(summary.pairs) + ' · 3 ตัวตรง: ' + describe(summary.triples);
-  const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ' : state.historyArchived ? 'ข้อมูลสำรอง' : 'ข้อมูลจากระบบแจ้งผล';
+  const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ' : describeHistoryFreshness(state.historySource, state.historyFetchedAt);
   const conflicts = draws.filter(row => row.conflict).length;
-  $('formulaHistoryStatus').textContent = `${source} · พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · ตรวจได้ ${backtest.length}/${limit} งวด`;
+  $('formulaHistoryStatus').textContent = `${source ? source + ' · ' : ''}พบข้อมูล ${draws.length - conflicts} งวดก่อนวันเลือก · ข้อมูลขัดกัน ${conflicts} งวด · มีข้อมูลในช่วง ${backtest.length}/${limit} งวด · ตรวจได้ ${scored.length}/${backtest.length} งวด`;
   $('formulaRows').replaceChildren(...backtest.map(row => tableRow([
-    row.date, row.prediction.primary.join(', '), row.primaryHit === null ? 'ไม่มีข้อมูล' : row.primaryHit ? 'ตรง' : 'ไม่ตรง',
-    row.prediction.pairs.join(', ') || '—', row.bottom2 ?? '—', !row.prediction.pairs.length ? 'ไม่ใช้สูตรนี้' : row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
-    row.prediction.triples.join(', ') || '—', row.top3 ?? '—', !row.prediction.triples.length ? 'ไม่ใช้สูตรนี้' : row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
+    row.date, row.reason ?? 'ตรวจแล้ว', row.prediction?.primary.join(', ') || '—', row.primaryHit == null ? '—' : row.primaryHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction?.pairs.join(', ') || '—', row.bottom2 ?? '—', !row.prediction ? '—' : !row.prediction.pairs.length ? 'ไม่ใช้สูตรนี้' : row.pairHit === null ? 'ไม่มีข้อมูล' : row.pairHit ? 'ตรง' : 'ไม่ตรง',
+    row.prediction?.triples.join(', ') || '—', row.top3 ?? '—', !row.prediction ? '—' : !row.prediction.triples.length ? 'ไม่ใช้สูตรนี้' : row.tripleHit === null ? 'ไม่มีข้อมูล' : row.tripleHit ? 'ตรง' : 'ไม่ตรง',
   ])));
 }
 const bangkokToday = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok' }).format(new Date());

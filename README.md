@@ -22,9 +22,9 @@ Set `PROJECT1_HISTORY_API` to the HTTPS origin of the separate Project-1 Cloudfl
 - `main/data/all_lotteries.json`
 - `runtime-live/lottery_previous_results.json`
 
-The Worker serves only `GET /api/catalog` and `GET /api/history` and forwards the snapshot time. It returns 503 if the snapshot is older than 20 minutes. Project-1 caches successful reads for 60 seconds, coalesces concurrent requests, and falls back to labeled stale cache or bundled data if the Worker fails. `GET /api/history-quality` reports data origin and match, date, duplicate and conflict counts.
+The Worker serves only `GET /api/catalog` and `GET /api/history` and forwards the snapshot time. It returns 503 if the snapshot is older than 20 minutes. Project-1 caches successful reads for 60 seconds, coalesces concurrent requests, and tries the direct Bombim00 source if the Worker fails or serves an expired snapshot. If both reads fail, it falls back to labeled stale cache or bundled data. `GET /api/history-quality` reports data origin and match, date, duplicate and conflict counts.
 
-If `PROJECT1_HISTORY_API` is unset, the server reads the same two files directly. For private source access in this mode, `BOMBIM_READ_TOKEN` is a server-side fine-grained token restricted to read-only Contents for Bombim00. The default Worker uses the public files and is independent of that token.
+For direct reads, the server uses the same two files. For private source access in this mode, `BOMBIM_READ_TOKEN` is a server-side fine-grained token restricted to read-only Contents for Bombim00. If an authenticated direct read fails, the server tries the same files at their public URL without credentials. The Worker uses the public files and is independent of that token.
 
 Use `cloudflare/wrangler.jsonc` and `cloudflare/schema.sql` for the Worker and its D1 binding. The mirror serves the current history window from the source, which can be shorter than the requested historical range.
 
