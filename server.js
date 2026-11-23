@@ -60,6 +60,7 @@ const files = new Map(Object.entries({
   '/guide-renderer.js': 'guide-renderer.js',
   '/formula-poster.js': 'formula-poster.js',
   '/formula-poster-background.webp': 'formula-poster-background.webp',
+  '/lao-redcross-poster.webp': 'lao-redcross-poster.webp',
 }));
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options','nosniff');
