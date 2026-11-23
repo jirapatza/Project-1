@@ -1,17 +1,18 @@
 const width = 900;
 const height = 1200;
-let loadedBackground;
+const backgrounds = new Map();
+const laoRedcross = 'lao_redcross';
 
-function loadBackground() {
-  if (!loadedBackground) {
+function loadBackground(file) {
+  if (!backgrounds.has(file)) {
     const image = new Image();
-    image.src = './formula-poster-background.webp';
-    loadedBackground = image.decode().then(() => image).catch(error => {
-      loadedBackground = undefined;
+    image.src = file;
+    backgrounds.set(file, image.decode().then(() => image).catch(error => {
+      backgrounds.delete(file);
       throw error;
-    });
+    }));
   }
-  return loadedBackground;
+  return backgrounds.get(file);
 }
 
 export function formulaPosterSections(result) {
@@ -107,8 +108,37 @@ function jewel(ctx, x, y, size) {
   ctx.restore();
 }
 
-export async function createFormulaPoster({ lotteryName, drawDate, formulaName, result }) {
-  const background = await loadBackground();
+function renderLockedLaoRedcross(ctx, drawDate, result) {
+  const figures = 'Georgia, serif';
+  const edge = '#4a110a';
+  const [year, month, day] = drawDate.split('-');
+  const shortYear = String(Number(year) + 543).slice(-2);
+  const standout = result.primary.map(String);
+  const doubles = standout.map(digit => digit.repeat(2));
+  print(ctx, 'ลาวกาชาด', 450, 258, 610, 81, goldText, edge);
+  print(ctx, `วันที่ ${day}/${month}/${shortYear}`, 450, 340, 385, 39, wine);
+  print(ctx, 'เด่น', 450, 400, 220, 45, '#fff6d6', edge);
+  print(ctx, standout.join(' '), 450, 512, 295, 146, goldText, edge, figures);
+
+  print(ctx, 'รูด–วิ่ง', 317, 644, 179, 35, '#fff6d6', edge);
+  print(ctx, doubles.join('–'), 554, 644, 280, 63, goldText, edge, figures);
+
+  print(ctx, '2 ตัว', 450, 717, 215, 35, '#fff6d6', edge);
+  if (!result.pairs.length) print(ctx, '—', 450, 805, 115, 55, wine);
+  for (const [index, pair] of result.pairs.entries()) {
+    const x = 188 + (index % 4) * 175;
+    print(ctx, pair, x, 781 + Math.floor(index / 4) * 67, 133, 65, wine, null, figures);
+  }
+
+  print(ctx, '3 ตัว', 450, 920, 215, 35, '#fff6d6', edge);
+  print(ctx, result.triples.join(' – ') || '—', 450, 997, 717, 68, goldText, edge, figures);
+  print(ctx, 'FORMULA LAB  ·  ใบแนวจากสูตร', 432, 1126, 605, 34, '#fff0ab', edge);
+}
+
+export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, formulaName, result }) {
+  const usesLockedTemplate = lotteryId === laoRedcross;
+  const background = await loadBackground(usesLockedTemplate
+    ? './lao-redcross-poster.webp' : './formula-poster-background.webp');
   await document.fonts.ready;
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -118,7 +148,17 @@ export async function createFormulaPoster({ lotteryName, drawDate, formulaName, 
   ctx.drawImage(background, 0, 0, width, height);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  if (usesLockedTemplate) {
+    renderLockedLaoRedcross(ctx, drawDate, result);
+  } else {
+    renderStandardPoster(ctx, lotteryName, drawDate, formulaName, result);
+  }
+  return new Promise((resolve, reject) => canvas.toBlob(
+    blob => blob ? resolve(blob) : reject(new Error('png_export_failed')), 'image/png',
+  ));
+}
 
+function renderStandardPoster(ctx, lotteryName, drawDate, formulaName, result) {
   panel(ctx, 285, 58, 330, 62, ruby, 28);
   jewel(ctx, 314, 89, 9);
   jewel(ctx, 586, 89, 9);
@@ -175,7 +215,4 @@ export async function createFormulaPoster({ lotteryName, drawDate, formulaName, 
   panel(ctx, 352, footerY, 493, 75, ruby, 24);
   print(ctx, 'เลขจากสูตร · ' + formulaName, 598, footerY + 25, 445, 23, '#fff1ac');
   print(ctx, 'ใช้ประกอบการวิเคราะห์', 598, footerY + 51, 445, 18, '#f0c98e');
-  return new Promise((resolve, reject) => canvas.toBlob(
-    blob => blob ? resolve(blob) : reject(new Error('png_export_failed')), 'image/png',
-  ));
 }

@@ -337,7 +337,7 @@ async function prepareFormulaPoster(lottery, details) {
   const version = posterVersion;
   $('formulaPosterStatus').textContent = 'กำลังสร้างใบแนวจากสูตร';
   try {
-    const blob = await createFormulaPoster(details);
+    const blob = await createFormulaPoster({ ...details, lotteryId: lottery });
     if (version !== posterVersion) return;
     posterUrl = URL.createObjectURL(blob);
     $('formulaPosterPreview').src = posterUrl;
