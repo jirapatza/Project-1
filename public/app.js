@@ -350,6 +350,8 @@ function clearFormulaPoster() {
 }
 async function prepareFormulaPoster(lottery, details) {
   const version = posterVersion;
+  formulaToStudio.textContent = posterTemplate.value === 'lao-gold'
+    ? 'แก้เฉพาะเลขในห้องทำใบแนว' : 'ใช้ผลคำนวณในห้องทำใบแนว';
   $('formulaPosterStatus').textContent = 'กำลังสร้างใบแนวจากสูตร';
   try {
     const blob = await createFormulaPoster({ ...details, lotteryId: lottery, template: posterTemplate.value });
@@ -412,10 +414,12 @@ function showIndependentFormula() {
       formulaToStudio.disabled = false;
       formulaToStudio.onclick = () => {
         try {
+          const locked = posterTemplate.value === 'lao-gold';
           sessionStorage.setItem('project1-formula-draft', JSON.stringify({
             lotteryName, drawDate: date, standout: result.primary.join(' '),
             twoDigit: result.pairs.join(' '), threeDigit: result.triples.join(' '),
-            running: '', expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+            running: locked ? result.primary.join(' ') : '',
+            lockedLotteryId: locked ? lottery : null, expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           }));
           location.href = '/studio';
         } catch {

@@ -118,14 +118,14 @@ function renderLockedLaoPoster(ctx, lotteryName, drawDate, result) {
   const [year, month, day] = drawDate.split('-');
   const shortYear = String(Number(year) + 543).slice(-2);
   const standout = result.primary.map(String);
-  const doubles = standout.map(digit => digit.repeat(2));
+  const doubles = (result.running ?? standout).map(digit => String(digit).repeat(2));
   print(ctx, lotteryName, 450, 258, 610, 81, goldText, edge);
   print(ctx, `วันที่ ${day}/${month}/${shortYear}`, 450, 340, 385, 39, wine);
   print(ctx, 'เด่น', 450, 400, 220, 45, '#fff6d6', edge);
   print(ctx, standout.join(' '), 450, 512, 295, 146, goldText, edge, figures);
 
   print(ctx, 'รูด–วิ่ง', 317, 644, 179, 35, '#fff6d6', edge);
-  print(ctx, doubles.join('–'), 554, 644, 280, 63, goldText, edge, figures);
+  print(ctx, doubles.join('–') || '—', 554, 644, 280, 63, goldText, edge, figures);
 
   print(ctx, '2 ตัว', 450, 717, 215, 35, '#fff6d6', edge);
   if (!result.pairs.length) print(ctx, '—', 450, 805, 115, 55, wine);
@@ -139,13 +139,12 @@ function renderLockedLaoPoster(ctx, lotteryName, drawDate, result) {
   print(ctx, 'FORMULA LAB  ·  ใบแนวจากสูตร', 432, 1126, 605, 34, '#fff0ab', edge);
 }
 
-export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, formulaName, result, template }) {
+export async function renderFormulaPoster(canvas, { lotteryId, lotteryName, drawDate, formulaName, result, template }) {
   const options = formulaPosterTemplates(lotteryId);
   const usesLockedTemplate = (options.includes(template) ? template : options[0]) === 'lao-gold';
   const background = await loadBackground(usesLockedTemplate
     ? './lao-redcross-poster.webp' : './formula-poster-background.webp');
   await document.fonts.ready;
-  const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
@@ -158,6 +157,11 @@ export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, fo
   } else {
     renderStandardPoster(ctx, lotteryName, drawDate, formulaName, result);
   }
+  return canvas;
+}
+
+export async function createFormulaPoster(details) {
+  const canvas = await renderFormulaPoster(document.createElement('canvas'), details);
   return new Promise((resolve, reject) => canvas.toBlob(
     blob => blob ? resolve(blob) : reject(new Error('png_export_failed')), 'image/png',
   ));
