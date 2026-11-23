@@ -28,6 +28,14 @@ For direct reads, the server uses the same two files. For private source access 
 
 Use `cloudflare/wrangler.jsonc` and `cloudflare/schema.sql` for the Worker and its D1 binding. The mirror serves the current history window from the source, which can be shorter than the requested historical range.
 
+The server includes a supplemental archive of 270 published draws captured on
+22 November 2026 from [ผลหวย.com](https://xn--t3cmiit.com) and
+[LotteryChecks](https://lotterychecks.com). Each row retains its result page
+URL. It supplements historical views and backtests for 13 existing catalog
+items. The API fetch timestamp describes the primary snapshot. The archive is
+fixed and provides no current-day guide picks. The regular history checks
+continue to flag conflicts and duplicates when source records overlap.
+
 ## Tests
 
 `npm test` runs the local suite; CI uses Node.js 22 so it also runs the SQLite integration check. `node --check server.js` checks syntax. Verify source reachability from the deployment environment.

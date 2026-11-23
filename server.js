@@ -12,6 +12,7 @@ import { summarizeHistoryCoverage } from './history-coverage.js';
 import { inspectConnections, readGuideInputs } from './connection-health.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const supplementalHistory = JSON.parse(await readFile(path.join(root, 'supplemental-history-2026-11-22.json'), 'utf8'));
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT || 4173);
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
@@ -34,11 +35,13 @@ async function body(req) {
   return JSON.parse(data || '{}');
 }
 async function upstream(key) {
-  return loadHistoricalData(key, {
+  const snapshot = await loadHistoricalData(key, {
     cache, retryUntil, inFlight,
     fetchUpstream: readSource,
     loadArchive: async source => JSON.parse(await readFile(path.join(root, `bombim00-${source}.json`), 'utf8')),
   });
+  if (key === 'history') return { ...snapshot, data: [...snapshot.data, ...supplementalHistory] };
+  return snapshot;
 }
 const files = new Map(Object.entries({
   '/': 'index.html',

@@ -72,3 +72,17 @@ test('maps the legacy Hanoi special source key and withholds conflicting round l
  assert.deepEqual(result.accepted.map(item => item.id), ['hanoi_special']);
  assert.deepEqual(result.rejected.map(item => item.reason), ['unknown_lottery', 'unknown_lottery']);
 });
+
+test('supplemental archive has valid unique draws for the 13 catalog items', async () => {
+ const { readFile } = await import('node:fs/promises');
+ const readJson = async path => JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
+ const [supplement, catalog] = await Promise.all([
+   readJson('../supplemental-history-2026-11-22.json'),
+   readJson('../bombim00-catalog.json'),
+ ]);
+ const { accepted, rejected } = auditHistoricalRows(supplement, catalog, '2026-11-22');
+ assert.equal(accepted.length, 270);
+ assert.equal(new Set(accepted.map(row => row.id)).size, 13);
+ assert.deepEqual(rejected, []);
+ assert.ok(accepted.every(row => /^https:\/\/(lotterychecks\.com|xn--t3cmiit\.com)\//.test(row.source)));
+});
