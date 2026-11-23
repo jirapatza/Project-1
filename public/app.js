@@ -1,6 +1,6 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
 import { formulaOptions, calculateFormula, formulaBacktestReport, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
-import { createFormulaPoster } from './formula-poster.js';
+import { createFormulaPoster, formulaPosterTemplates } from './formula-poster.js';
 import { describeHistoryAvailability, describeHistoryFreshness } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null,historySource:null,historyFetchedAt:null};
@@ -324,6 +324,21 @@ async function showCalculation() {
 const formulaToStudio = $('formulaToStudio');
 let posterVersion = 0;
 let posterUrl = '';
+let posterDetails = null;
+let posterLottery = '';
+const posterTemplate = $('formulaPosterTemplate');
+const posterTemplateNames = { standard: 'น้ำเงิน–ทอง', 'lao-gold': 'แดง–ทอง · มังกรลาว' };
+function updatePosterTemplates(lottery) {
+  if (posterLottery === lottery) return;
+  posterLottery = lottery;
+  const options = formulaPosterTemplates(lottery);
+  posterTemplate.replaceChildren(...options.map(value => new Option(posterTemplateNames[value], value)));
+}
+posterTemplate.onchange = () => {
+  if (!posterDetails) return;
+  clearFormulaPoster();
+  void prepareFormulaPoster(posterLottery, posterDetails);
+};
 function clearFormulaPoster() {
   posterVersion++;
   $('formulaPoster').hidden = true;
@@ -337,7 +352,7 @@ async function prepareFormulaPoster(lottery, details) {
   const version = posterVersion;
   $('formulaPosterStatus').textContent = 'กำลังสร้างใบแนวจากสูตร';
   try {
-    const blob = await createFormulaPoster({ ...details, lotteryId: lottery });
+    const blob = await createFormulaPoster({ ...details, lotteryId: lottery, template: posterTemplate.value });
     if (version !== posterVersion) return;
     posterUrl = URL.createObjectURL(blob);
     $('formulaPosterPreview').src = posterUrl;
@@ -352,9 +367,12 @@ async function prepareFormulaPoster(lottery, details) {
 
 function showIndependentFormula() {
   clearFormulaPoster();
+  posterDetails = null;
+  $('formulaPosterTemplateField').hidden = true;
   formulaToStudio.disabled = true;
   formulaToStudio.onclick = null;
   const lottery = $('calculateLottery').value;
+  updatePosterTemplates(lottery);
   const date = $('formulaDate').value;
   const laoOption = [...$('formulaChoice').options].find(option => option.value === 'lao_divide_three');
   if (laoOption && lottery !== 'lao_patthana' && $('formulaChoice').value === laoOption.value) $('formulaChoice').value = 'weekday';
@@ -388,7 +406,9 @@ function showIndependentFormula() {
     $('formulaPrediction').textContent = parts.join(' · ');
     const lotteryName = state.catalog.find(item => item.id === lottery)?.name;
     if (lotteryName) {
-      void prepareFormulaPoster(lottery, { lotteryName, drawDate: date, formulaName: selected.name, result });
+      posterDetails = { lotteryName, drawDate: date, formulaName: selected.name, result };
+      $('formulaPosterTemplateField').hidden = posterTemplate.options.length < 2;
+      void prepareFormulaPoster(lottery, posterDetails);
       formulaToStudio.disabled = false;
       formulaToStudio.onclick = () => {
         try {
