@@ -1,5 +1,23 @@
 // Read-only infrastructure checks. Do not expose credentials or individual lottery numbers.
-export async function inspectConnections({ load, guideUrl, fetchImpl = fetch, timeoutMs = 5000 }) {
+export async function readGuideInputs(guideUrl, { clientId, clientSecret, fetchImpl = fetch, timeoutMs = 8000 } = {}) {
+  const endpoint = new URL('/api/guide-inputs', guideUrl);
+  if (endpoint.protocol !== 'https:') throw new Error('Invalid upstream scheme');
+  const headers = { Accept: 'application/json' };
+  if (clientId && clientSecret) {
+    headers['CF-Access-Client-Id'] = clientId;
+    headers['CF-Access-Client-Secret'] = clientSecret;
+  }
+  const response = await fetchImpl(endpoint, { redirect: 'error', signal: AbortSignal.timeout(timeoutMs), headers });
+  if (!response.ok) throw new Error('Upstream unavailable');
+  const data = await response.json();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data?.date ?? '') ||
+      !Array.isArray(data?.entries) || !Array.isArray(data?.catalog)) {
+    throw new Error('Invalid upstream schema');
+  }
+  return data;
+}
+
+export async function inspectConnections({ load, guideUrl, clientId, clientSecret, fetchImpl = fetch, timeoutMs = 5000 }) {
   const checks = await Promise.allSettled(['catalog', 'history'].map(key => load(key)));
   const result = { history: {} };
   for (const [index, key] of ['catalog', 'history'].entries()) {
@@ -16,18 +34,7 @@ export async function inspectConnections({ load, guideUrl, fetchImpl = fetch, ti
   result.guideInput = { configured: Boolean(guideUrl), reachable: false, currentDate: null, records: 0 };
   if (guideUrl) {
     try {
-      const endpoint = new URL('/api/guide-inputs', guideUrl);
-      if (endpoint.protocol !== 'https:') throw new Error('Invalid upstream scheme');
-      const response = await fetchImpl(endpoint, {
-        redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
-        headers: { Accept: 'application/json' },
-      });
-      if (!response.ok) throw new Error('Upstream unavailable');
-      const data = await response.json();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(data?.date ?? '') ||
-          !Array.isArray(data?.entries) || !Array.isArray(data?.catalog)) {
-        throw new Error('Invalid upstream schema');
-      }
+      const data = await readGuideInputs(guideUrl, { clientId, clientSecret, fetchImpl, timeoutMs });
       result.guideInput = {
         configured: true, reachable: true, currentDate: data.date,
         records: data.entries.length,
