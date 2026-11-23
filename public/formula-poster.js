@@ -1,7 +1,11 @@
 const width = 900;
 const height = 1200;
 const backgrounds = new Map();
-const laoRedcross = 'lao_redcross';
+export function formulaPosterTemplates(lotteryId) {
+  if (lotteryId === 'lao_redcross') return ['lao-gold', 'standard'];
+  if (typeof lotteryId === 'string' && lotteryId.startsWith('lao_')) return ['standard', 'lao-gold'];
+  return ['standard'];
+}
 
 function loadBackground(file) {
   if (!backgrounds.has(file)) {
@@ -108,14 +112,14 @@ function jewel(ctx, x, y, size) {
   ctx.restore();
 }
 
-function renderLockedLaoRedcross(ctx, drawDate, result) {
+function renderLockedLaoPoster(ctx, lotteryName, drawDate, result) {
   const figures = 'Georgia, serif';
   const edge = '#4a110a';
   const [year, month, day] = drawDate.split('-');
   const shortYear = String(Number(year) + 543).slice(-2);
   const standout = result.primary.map(String);
   const doubles = standout.map(digit => digit.repeat(2));
-  print(ctx, 'ลาวกาชาด', 450, 258, 610, 81, goldText, edge);
+  print(ctx, lotteryName, 450, 258, 610, 81, goldText, edge);
   print(ctx, `วันที่ ${day}/${month}/${shortYear}`, 450, 340, 385, 39, wine);
   print(ctx, 'เด่น', 450, 400, 220, 45, '#fff6d6', edge);
   print(ctx, standout.join(' '), 450, 512, 295, 146, goldText, edge, figures);
@@ -135,8 +139,9 @@ function renderLockedLaoRedcross(ctx, drawDate, result) {
   print(ctx, 'FORMULA LAB  ·  ใบแนวจากสูตร', 432, 1126, 605, 34, '#fff0ab', edge);
 }
 
-export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, formulaName, result }) {
-  const usesLockedTemplate = lotteryId === laoRedcross;
+export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, formulaName, result, template }) {
+  const options = formulaPosterTemplates(lotteryId);
+  const usesLockedTemplate = (options.includes(template) ? template : options[0]) === 'lao-gold';
   const background = await loadBackground(usesLockedTemplate
     ? './lao-redcross-poster.webp' : './formula-poster-background.webp');
   await document.fonts.ready;
@@ -149,7 +154,7 @@ export async function createFormulaPoster({ lotteryId, lotteryName, drawDate, fo
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   if (usesLockedTemplate) {
-    renderLockedLaoRedcross(ctx, drawDate, result);
+    renderLockedLaoPoster(ctx, lotteryName, drawDate, result);
   } else {
     renderStandardPoster(ctx, lotteryName, drawDate, formulaName, result);
   }
