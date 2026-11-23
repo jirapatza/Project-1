@@ -98,6 +98,44 @@ try{
 refresh();
 if(formulaDraftLoaded)$('draftHint').textContent='นำเข้าจากหน้าสูตรแล้ว ตรวจข้อมูลและกรอกช่องที่ว่างก่อนดาวน์โหลด';
 
+const availableGuides = $('availableGuides');
+const guideFeedStatus = $('guideFeedStatus');
+let readyGuides = [];
+$('fetchGuides').onclick = async () => {
+  $('fetchGuides').disabled = true;
+  $('availableGuidesLabel').hidden = true;
+  guideFeedStatus.textContent = 'กำลังโหลดใบแนว';
+  readyGuides = [];
+  try {
+    const response = await fetch('/api/guide-inputs');
+    if (!response.ok) throw new Error('Guide inputs unavailable');
+    const { catalog, confirmedDraws, guides, date } = await response.json();
+    const names = new Map(catalog.map(({ id, name }) => [id, name]));
+    const confirmed = new Set(confirmedDraws.filter(draw => draw.drawDate === date).map(draw => draw.lotteryId));
+    readyGuides = guides.filter(guide => guide.drawDate === date && confirmed.has(guide.lotteryId) &&
+      names.has(guide.lotteryId) && fields.slice(2).every(key => Array.isArray(guide.numbers?.[key])));
+    availableGuides.replaceChildren(new Option('เลือกหวย', ''), ...readyGuides.map((guide, index) =>
+      new Option(names.get(guide.lotteryId), String(index))));
+    $('availableGuidesLabel').hidden = readyGuides.length === 0;
+    guideFeedStatus.textContent = readyGuides.length ? 'เลือกใบแนวเพื่อนำมาใส่ในแบบ' : 'ยังไม่มีใบแนวพร้อมใช้ในช่วงเวลานี้';
+  } catch {
+    guideFeedStatus.textContent = 'โหลดใบแนวอัตโนมัติไม่ได้ ยังสามารถกรอกเลขหรือใช้ผลจากหน้าสูตรได้';
+  } finally {
+    $('fetchGuides').disabled = false;
+  }
+};
+availableGuides.onchange = () => {
+  if (!availableGuides.value) return;
+  const input = readyGuides[Number(availableGuides.value)];
+  if (!input) return;
+  checkpoint();
+  $('lotteryName').value = availableGuides.selectedOptions[0].textContent;
+  $('drawDate').value = input.drawDate;
+  for (const key of fields.slice(2)) $(key).value = input.numbers[key].join(' ');
+  guideFeedStatus.textContent = 'นำเข้าใบแนวแล้ว ตรวจตัวอย่างแล้วกดดาวน์โหลด PNG';
+  draw();
+};
+
 let drag=null;
 const point=event=>canvasPoint(event.clientX,event.clientY,canvas.getBoundingClientRect(),template.width,template.height);
 canvas.addEventListener('pointerdown',event=>{

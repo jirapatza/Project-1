@@ -9,7 +9,7 @@ import { readHistorySource } from './history-api-source.js';
 import { loadHistoricalData } from './data-source.js';
 import { summarizeHistoryQuality, bangkokDate } from './history-quality.js';
 import { summarizeHistoryCoverage } from './history-coverage.js';
-import { inspectConnections } from './connection-health.js';
+import { inspectConnections, readGuideInputs } from './connection-health.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const HOST = process.env.HOST || '127.0.0.1';
@@ -17,6 +17,10 @@ const PORT = Number(process.env.PORT || 4173);
 const branch = process.env.BOMBIM_DATA_BRANCH || 'runtime-live';
 const historyApi = process.env.PROJECT1_HISTORY_API?.trim();
 const guideApi = process.env.PROJECT1_GUIDE_API?.trim();
+const guideCredentials = {
+  clientId: process.env.PROJECT1_GUIDE_ACCESS_CLIENT_ID?.trim(),
+  clientSecret: process.env.PROJECT1_GUIDE_ACCESS_CLIENT_SECRET?.trim(),
+};
 const readSource = key => readHistorySource(key, {
   historyApi, branch, token: process.env.BOMBIM_READ_TOKEN?.trim(),
 });
@@ -105,17 +109,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/guide-inputs' && req.method === 'GET') {
       if (!guideApi) return json(res, 503, { error: 'ยังไม่ได้เชื่อมแหล่งข้อมูลใบแนว' });
-      const endpoint = new URL('/api/guide-inputs', guideApi);
-      if (endpoint.protocol !== 'https:') return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
-      const upstream = await fetch(endpoint, {
-        redirect: 'error', signal: AbortSignal.timeout(8000),
-        headers: { Accept: 'application/json' },
-      });
-      if (!upstream.ok) return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
-      return json(res, 200, await upstream.json());
+      try {
+        return json(res, 200, await readGuideInputs(guideApi, guideCredentials));
+      } catch {
+        return json(res, 503, { error: 'แหล่งข้อมูลใบแนวไม่พร้อม' });
+      }
     }
     if (pathname === '/api/connection-status' && req.method === 'GET') {
-      const report = await inspectConnections({ load: upstream, guideUrl: guideApi });
+      const report = await inspectConnections({ load: upstream, guideUrl: guideApi, ...guideCredentials });
       return json(res, 200, report);
     }
     if (pathname === '/api/history-coverage' && req.method === 'GET') {

@@ -52,3 +52,18 @@ test('rejects invalid guide schema and HTTP failure without revealing upstream d
     assert.equal(report.guideInput.reachable, false);
   }
 });
+
+test('uses private service credentials only on HTTPS with redirects disabled', async () => {
+  const report = await inspectConnections({
+    load, guideUrl: 'https://example.test', clientId: 'test-id', clientSecret: 'test-secret',
+    fetchImpl: async (url, options) => {
+      assert.equal(url.href, 'https://example.test/api/guide-inputs');
+      assert.equal(options.redirect, 'error');
+      assert.equal(options.headers['CF-Access-Client-Id'], 'test-id');
+      assert.equal(options.headers['CF-Access-Client-Secret'], 'test-secret');
+      return Response.json({ date: '2026-11-23', catalog: [], entries: [] });
+    },
+  });
+  assert.equal(report.guideInput.reachable, true);
+  assert.doesNotMatch(JSON.stringify(report), /test-id|test-secret/);
+});
