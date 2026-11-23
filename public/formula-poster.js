@@ -23,35 +23,88 @@ export function formulaPosterSections(result) {
   ].filter(section => section.values.length);
 }
 
-function print(ctx, text, x, y, maxWidth, fontSize, color, outline = null) {
+const gold = [[0, '#81430a'], [0.16, '#ffd675'], [0.31, '#fff3b4'],
+  [0.52, '#ad6512'], [0.73, '#ffda71'], [1, '#8b4705']];
+const goldText = [[0, '#fffce0'], [0.35, '#ffe084'], [0.55, '#e49b28'], [0.76, '#ffdf78'], [1, '#b16a13']];
+const navy = [[0, '#283c81'], [0.42, '#16255c'], [1, '#080f30']];
+const ivory = [[0, '#fff9e5'], [0.63, '#fff1c7'], [1, '#edc67b']];
+const ruby = [[0, '#a32b37'], [0.52, '#731525'], [1, '#360b20']];
+const wine = [[0, '#a3313c'], [0.44, '#7d1429'], [1, '#3e0b1b']];
+
+function verticalGradient(ctx, top, bottom, stops) {
+  const gradient = ctx.createLinearGradient(0, top, 0, bottom);
+  for (const [offset, color] of stops) gradient.addColorStop(offset, color);
+  return gradient;
+}
+
+function print(ctx, text, x, y, maxWidth, fontSize, color, outline = null, family = 'system-ui, sans-serif') {
+  ctx.save();
   while (fontSize > 14) {
-    ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
+    ctx.font = `900 ${fontSize}px ${family}`;
     if (ctx.measureText(text).width <= maxWidth) break;
     fontSize--;
   }
   if (outline) {
+    ctx.shadowColor = '#040615bb';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 6;
     ctx.strokeStyle = outline;
-    ctx.lineWidth = 6;
+    ctx.lineWidth = 7;
     ctx.lineJoin = 'round';
     ctx.strokeText(text, x, y, maxWidth);
+    ctx.shadowColor = 'transparent';
   }
-  ctx.fillStyle = color;
+  ctx.fillStyle = typeof color === 'string' ? color : verticalGradient(ctx, y - fontSize / 2, y + fontSize / 2, color);
   ctx.fillText(text, x, y, maxWidth);
+  ctx.restore();
 }
 
-function panel(ctx, x, y, w, h, fill, radius = 24) {
+function panel(ctx, x, y, w, h, fill, radius = 25, rim = 6) {
+  ctx.save();
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, radius);
-  ctx.fillStyle = fill;
+  ctx.shadowColor = '#07081ad9';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 7;
+  ctx.fillStyle = verticalGradient(ctx, y, y + h, gold);
   ctx.fill();
-  ctx.lineWidth = 5;
-  ctx.strokeStyle = '#e6a207';
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.roundRect(x + 5, y + 5, w - 10, h - 10, radius - 5);
+  ctx.shadowColor = 'transparent';
   ctx.lineWidth = 2;
-  ctx.strokeStyle = '#fff1a2';
+  ctx.strokeStyle = '#57300d';
   ctx.stroke();
+
+  ctx.beginPath();
+  ctx.roundRect(x + rim, y + rim, w - 2 * rim, h - 2 * rim, radius - rim);
+  ctx.fillStyle = verticalGradient(ctx, y + rim, y + h - rim, fill);
+  ctx.fill();
+  ctx.strokeStyle = '#fff0a5';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.roundRect(x + rim + 3, y + rim + 3, w - 2 * rim - 6, h - 2 * rim - 6, radius - rim - 3);
+  ctx.strokeStyle = '#b77a4680';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function jewel(ctx, x, y, size) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.quadraticCurveTo(size * 0.22, -size * 0.28, size, 0);
+  ctx.quadraticCurveTo(size * 0.22, size * 0.28, 0, size);
+  ctx.quadraticCurveTo(-size * 0.22, size * 0.28, -size, 0);
+  ctx.quadraticCurveTo(-size * 0.22, -size * 0.28, 0, -size);
+  ctx.closePath();
+  ctx.fillStyle = verticalGradient(ctx, -size, size, goldText);
+  ctx.fill();
+  ctx.strokeStyle = '#80460b';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
 }
 
 export async function createFormulaPoster({ lotteryName, drawDate, formulaName, result }) {
@@ -66,43 +119,62 @@ export async function createFormulaPoster({ lotteryName, drawDate, formulaName, 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  panel(ctx, 292, 58, 316, 62, '#6e1017');
-  print(ctx, 'FORMULA LAB', 450, 91, 274, 30, '#fff0a8');
-  print(ctx, lotteryName, 450, 203, 752, 91, '#ffda57', '#6e1017');
-  panel(ctx, 240, 268, 420, 56, '#fff0c0');
+  panel(ctx, 285, 58, 330, 62, ruby, 28);
+  jewel(ctx, 314, 89, 9);
+  jewel(ctx, 586, 89, 9);
+  print(ctx, 'FORMULA LAB', 450, 89, 247, 28, goldText, '#39200f', 'Georgia, serif');
+  print(ctx, lotteryName, 450, 202, 750, 100, goldText, '#591421');
+  panel(ctx, 226, 263, 448, 63, ivory, 29);
+  jewel(ctx, 249, 295, 8);
+  jewel(ctx, 651, 295, 8);
   const dateLabel = new Intl.DateTimeFormat('th-TH', {
     dateStyle: 'long', timeZone: 'Asia/Bangkok',
   }).format(new Date(drawDate + 'T12:00:00+07:00'));
-  print(ctx, 'งวด ' + dateLabel, 450, 297, 378, 32, '#651019');
+  print(ctx, 'งวด ' + dateLabel, 450, 295, 375, 34, wine);
 
   const sections = formulaPosterSections(result);
   const totalWeight = sections.reduce((sum, section) => sum + section.weight, 0);
-  const space = Math.min(650, sections.length * 168) - (sections.length - 1) * 17;
+  const gap = 18;
+  const space = Math.min(662, sections.length * 170) - (sections.length - 1) * gap;
   let y = 362;
   for (const { label, values, weight, perRow, inset } of sections) {
     const h = space * weight / totalWeight;
-    const x = 345;
-    const w = 505;
-    panel(ctx, x, y + 16, w, h - 16, inset ? '#132046' : '#fff0c1');
-    panel(ctx, x + 125, y, 255, 43, inset ? '#75101c' : '#142557', 17);
-    print(ctx, label, x + w / 2, y + 23, 225, 27, '#fff1a1');
+    const x = 337;
+    const w = 523;
+    panel(ctx, x, y + 15, w, h - 15, inset ? navy : ivory, inset ? 52 : 26, inset ? 9 : 6);
+    const tabWidth = inset ? 200 : 252;
+    const tabX = x + (w - tabWidth) / 2;
+    panel(ctx, tabX, y, tabWidth, 43, inset ? ruby : navy, 21, 4);
+    jewel(ctx, tabX + 19, y + 21, 6);
+    jewel(ctx, tabX + tabWidth - 19, y + 21, 6);
+    print(ctx, label, x + w / 2, y + 22, tabWidth - 55, 26, goldText);
+    if (inset) {
+      jewel(ctx, x + 28, y + h * 0.57, 12);
+      jewel(ctx, x + w - 28, y + h * 0.57, 12);
+    }
     const rowCount = Math.ceil(values.length / perRow);
-    const rowHeight = (h - 53) / rowCount;
+    const rowHeight = (h - 52) / rowCount;
+    const columns = Math.ceil(values.length / rowCount);
+    const fieldWidth = w - (inset ? 110 : 44);
+    const columnWidth = fieldWidth / columns;
     for (let row = 0; row < rowCount; row++) {
-      const numbers = values.slice(row * perRow, (row + 1) * perRow);
-      const columnWidth = (w - 34) / numbers.length;
+      const numbers = values.slice(row * columns, (row + 1) * columns);
+      const middle = y + 46 + rowHeight * (row + 0.5);
+      const start = x + (w - columnWidth * numbers.length) / 2;
       for (const [column, value] of numbers.entries()) {
-        print(ctx, value, x + 17 + columnWidth * (column + 0.5), y + 48 + rowHeight * (row + 0.5),
-          columnWidth - 8, Math.min(inset ? 124 : 64, rowHeight * 0.92),
-          inset ? '#ffdf60' : '#861722', inset ? '#841423' : null);
+        const center = start + columnWidth * (column + 0.5);
+        print(ctx, value, center, middle, columnWidth - 11, Math.min(inset ? 140 : 70, rowHeight * 1.02),
+          inset ? goldText : wine, inset ? '#63122b' : null, 'Georgia, serif');
+        if (inset && column < numbers.length - 1) jewel(ctx, center + columnWidth / 2, middle, 8);
       }
     }
-    y += h + 17;
+    y += h + gap;
   }
 
-  panel(ctx, 334, 1032, 527, 88, '#6e1017');
-  print(ctx, 'เลขจากสูตร · ' + formulaName, 597, 1060, 475, 24, '#fff1a1');
-  print(ctx, 'ใช้ประกอบการวิเคราะห์', 597, 1091, 475, 22, '#fff1a1');
+  const footerY = Math.min(y + 4, 1042);
+  panel(ctx, 352, footerY, 493, 75, ruby, 24);
+  print(ctx, 'เลขจากสูตร · ' + formulaName, 598, footerY + 25, 445, 23, '#fff1ac');
+  print(ctx, 'ใช้ประกอบการวิเคราะห์', 598, footerY + 51, 445, 18, '#f0c98e');
   return new Promise((resolve, reject) => canvas.toBlob(
     blob => blob ? resolve(blob) : reject(new Error('png_export_failed')), 'image/png',
   ));
