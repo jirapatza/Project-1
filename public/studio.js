@@ -122,9 +122,12 @@ $('fetchGuides').onclick = async () => {
     const readyGuides = guides.filter(guide => guide.drawDate === date && confirmed.has(guide.lotteryId) &&
       names.has(guide.lotteryId) && fields.slice(2).every(key => Array.isArray(guide.numbers?.[key])));
     const drafts = selectStockGuideDrafts(data, confirmed).filter(guide => names.has(guide.lotteryId));
+    const deadlines = new Map((data.schedule ?? []).map(row => [row.id, Date.parse(row.targetReadyAt)]));
     guideOptions = [
       ...readyGuides.map(guide => ({ guide, name: names.get(guide.lotteryId), draft: false })),
-      ...drafts.map(guide => ({ guide, name: names.get(guide.lotteryId), draft: true })),
+      ...drafts.map(guide => ({
+        guide, name: names.get(guide.lotteryId), draft: true, expiresAt: deadlines.get(guide.lotteryId),
+      })),
     ];
     availableGuides.replaceChildren(new Option('เลือกหวย', ''), ...guideOptions.map(({ name, draft }, index) =>
       new Option(name + (draft ? ' · ฉบับร่างจากสูตร' : ' · แนวทางจากแหล่งภายนอก'), String(index))));
@@ -143,6 +146,11 @@ availableGuides.onchange = () => {
   if (!availableGuides.value) return;
   const option = guideOptions[Number(availableGuides.value)];
   if (!option) return;
+  if (option.draft && Date.now() > option.expiresAt) {
+    availableGuides.selectedIndex = 0;
+    guideFeedStatus.textContent = 'หมดช่วงนำเข้าฉบับร่างนี้แล้ว กดโหลดใบแนวอีกครั้ง';
+    return;
+  }
   const { guide: input, name, draft } = option;
   checkpoint();
   selectedGuideSource = {
