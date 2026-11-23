@@ -1,5 +1,6 @@
 import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalizeLotteryName as norm } from './history-records.js';
 import { formulaOptions, calculateFormula, formulaBacktestReport, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
+import { createFormulaPoster } from './formula-poster.js';
 import { describeHistoryAvailability, describeHistoryFreshness } from './history-availability.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null,historySource:null,historyFetchedAt:null};
@@ -321,7 +322,36 @@ async function showCalculation() {
   }
 }
 const formulaToStudio = $('formulaToStudio');
+let posterVersion = 0;
+let posterUrl = '';
+function clearFormulaPoster() {
+  posterVersion++;
+  $('formulaPoster').hidden = true;
+  $('formulaPosterStatus').textContent = '';
+  $('formulaPosterPreview').removeAttribute('src');
+  $('formulaPosterDownload').removeAttribute('href');
+  if (posterUrl) URL.revokeObjectURL(posterUrl);
+  posterUrl = '';
+}
+async function prepareFormulaPoster(lottery, details) {
+  const version = posterVersion;
+  $('formulaPosterStatus').textContent = 'กำลังสร้างใบแนวจากสูตร';
+  try {
+    const blob = await createFormulaPoster(details);
+    if (version !== posterVersion) return;
+    posterUrl = URL.createObjectURL(blob);
+    $('formulaPosterPreview').src = posterUrl;
+    $('formulaPosterDownload').href = posterUrl;
+    $('formulaPosterDownload').download = `guide-formula-${lottery}-${details.drawDate}.png`;
+    $('formulaPoster').hidden = false;
+    $('formulaPosterStatus').textContent = '';
+  } catch {
+    if (version === posterVersion) $('formulaPosterStatus').textContent = 'สร้างใบแนวไม่ได้ ลองเปลี่ยนสูตรหรือโหลดหน้าใหม่';
+  }
+}
+
 function showIndependentFormula() {
+  clearFormulaPoster();
   formulaToStudio.disabled = true;
   formulaToStudio.onclick = null;
   const lottery = $('calculateLottery').value;
@@ -358,6 +388,7 @@ function showIndependentFormula() {
     $('formulaPrediction').textContent = parts.join(' · ');
     const lotteryName = state.catalog.find(item => item.id === lottery)?.name;
     if (lotteryName) {
+      void prepareFormulaPoster(lottery, { lotteryName, drawDate: date, formulaName: selected.name, result });
       formulaToStudio.disabled = false;
       formulaToStudio.onclick = () => {
         try {

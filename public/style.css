@@ -107,3 +107,19 @@
 .dashboard td { max-width: 340px; }
 .dashboard #publisherRows td { white-space: normal; min-width: 104px; }
 .dashboard #publisherRows td:nth-child(3) { min-width: 180px; }
+
+#formulaPoster img {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  margin-block: 12px 20px;
+  border-radius: 12px;
+}
+.formula-poster-download {
+  display: inline-block;
+  color: #11131a;
+  background: #ffd68c;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
