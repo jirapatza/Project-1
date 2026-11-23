@@ -58,15 +58,17 @@ const files = new Map(Object.entries({
   '/guide-geometry.js': 'guide-geometry.js',
   '/guide-template.js': 'guide-template.js',
   '/guide-renderer.js': 'guide-renderer.js',
+  '/formula-poster.js': 'formula-poster.js',
+  '/formula-poster-background.webp': 'formula-poster-background.webp',
 }));
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Referrer-Policy','no-referrer');
   res.setHeader('X-Frame-Options','DENY');
   const pathname = new URL(req.url || '/', 'http://localhost').pathname;
-  const studioImages = pathname === '/studio' ? "; img-src 'self' data:" : '';
+  const imagePolicy = pathname === '/studio' ? "; img-src 'self' data:" : pathname === '/' ? "; img-src 'self' blob:" : '';
   res.setHeader('Content-Security-Policy',
-    "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" + studioImages);
+    "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" + imagePolicy);
 
   try {
     if (pathname === '/api/publishers' && req.method === 'GET') {
@@ -149,8 +151,8 @@ const server = http.createServer(async (req, res) => {
     const name = files.get(pathname);
     if (!name) return json(res,404,{error:'Not found'});
     const data = await readFile(path.join(root,'public',name));
-    const type = name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : 'text/html';
-    res.writeHead(200,{'Content-Type':`${type}; charset=utf-8`,'Cache-Control':'no-store'});res.end(data);
+    const type = name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.webp') ? 'image/webp' : 'text/html';
+    res.writeHead(200,{'Content-Type': type === 'image/webp' ? type : `${type}; charset=utf-8`,'Cache-Control':'no-store'});res.end(data);
   } catch {
     const incidentId = randomUUID();
     console.error(JSON.stringify({ event: 'request_error', incidentId }));
