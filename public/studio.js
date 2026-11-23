@@ -1,13 +1,15 @@
 import {canvasPoint,hitBox,movedBox} from './guide-geometry.js';
 import {createTemplate,validateTemplate} from './guide-template.js';
 import {renderGuide,exportGuidePng} from './guide-renderer.js';
+import {selectStockGuideDrafts} from './stock-guide-drafts.js';
 const $=id=>document.getElementById(id), canvas=$('preview');
 let template=createTemplate(), history=[], serial=0;
 let backgroundRequest=0;
+let selectedGuideSource = null;
 const fields=['lotteryName','drawDate','standout','twoDigit','threeDigit','running'];
 const guide=()=>({lotteryName:$('lotteryName').value,drawDate:$('drawDate').value,numbers:Object.fromEntries(fields.slice(2).map(key=>[key,$(key).value.trim().split(/[\s,]+/).filter(Boolean)]))});
-const snapshot=()=>JSON.stringify({template,values:Object.fromEntries(fields.map(k=>[k,$(k).value]))});
-function restore(saved){const state=JSON.parse(saved);template=state.template;fields.forEach(k=>$(k).value=state.values[k]);}
+const snapshot=()=>JSON.stringify({template,selectedGuideSource,values:Object.fromEntries(fields.map(k=>[k,$(k).value]))});
+function restore(saved){const state=JSON.parse(saved);template=state.template;selectedGuideSource=state.selectedGuideSource;showGuideSource();fields.forEach(k=>$(k).value=state.values[k]);}
 function checkpoint(){history.push(snapshot());if(history.length>50)history.shift();}
 async function draw(){const turn=++serial;try{const temp=document.createElement('canvas');await renderGuide(temp,template,guide());if(turn!==serial)return;canvas.width=temp.width;canvas.height=temp.height;canvas.getContext('2d').drawImage(temp,0,0);$('status').textContent='ตัวอย่างจากเลขที่กรอก';}catch{if(turn===serial)$('status').textContent='ไม่สามารถแสดงภาพได้ ตรวจข้อความและขนาดช่อง';}}
 function properties(){const box=template.boxes.find(b=>b.id===$('box').value);$('properties').replaceChildren();if(!box)return;$('font').value=box.fontFamily||'sans-serif';for(const [key,title] of [['x','ตำแหน่งแนวนอน'],['y','ตำแหน่งแนวตั้ง'],['width','ความกว้าง'],['height','ความสูง'],['fontSize','ขนาดตัวอักษร'],['color','สีตัวอักษร'],...(box.field==='text'?[['text','ข้อความ']]:[])]){const label=document.createElement('label');label.textContent=title;const input=document.createElement('input');input.type=key==='color'?'color':key==='text'?'text':'number';input.value=box[key];input.addEventListener('change',()=>{const next=structuredClone(template);next.boxes.find(b=>b.id===box.id)[key]=input.type==='number'?Number(input.value):input.value;if(!validateTemplate(next)){input.value=box[key];$('status').textContent='ช่องต้องอยู่ภายในภาพ';return;}checkpoint();template=next;draw();});label.append(input);$('properties').append(label);}}
@@ -23,6 +25,7 @@ function savedStudio() {
   if (!data || !validateTemplate(data.template)) return null;
   if (data.values && (!Number.isFinite(data.expiresAt) || data.expiresAt <= Date.now())) {
     delete data.values;
+    delete data.guideSource;
     delete data.expiresAt;
     localStorage.setItem(savedStudioKey, JSON.stringify(data));
   }
@@ -32,7 +35,7 @@ $('save').onclick = () => {
   try {
     const values = Object.fromEntries(fields.map(key => [key, $(key).value]));
     localStorage.setItem(savedStudioKey, JSON.stringify({
-      template, values, expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      template, values, guideSource: selectedGuideSource, expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     }));
     $('status').textContent = 'บันทึกแม่แบบแล้ว เก็บเลขฉบับร่าง 24 ชั่วโมง';
   } catch {
@@ -46,6 +49,8 @@ $('load').onclick = () => {
     backgroundRequest++;
     checkpoint();
     template = data.template;
+    selectedGuideSource = data.values ? data.guideSource ?? null : null;
+    showGuideSource();
     for (const key of fields) {
       $(key).value = typeof data.values?.[key] === 'string' ? data.values[key] : '';
     }
@@ -74,7 +79,7 @@ $('export').onclick=async()=>{
     const blob=await exportGuidePng(document.createElement('canvas'),template,data);
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;
-    link.download=`guide-${data.drawDate}.png`;
+    link.download=`guide-${selectedGuideSource?.draft ? 'formula-' : ''}${data.drawDate}.png`;
     link.click();
     setTimeout(()=>URL.revokeObjectURL(url),30000);
     $('status').textContent='สร้าง PNG แล้ว';
@@ -100,36 +105,51 @@ if(formulaDraftLoaded)$('draftHint').textContent='นำเข้าจากห
 
 const availableGuides = $('availableGuides');
 const guideFeedStatus = $('guideFeedStatus');
-let readyGuides = [];
+let guideOptions = [];
+
 $('fetchGuides').onclick = async () => {
   $('fetchGuides').disabled = true;
   $('availableGuidesLabel').hidden = true;
   guideFeedStatus.textContent = 'กำลังโหลดใบแนว';
-  readyGuides = [];
+  guideOptions = [];
   try {
     const response = await fetch('/api/guide-inputs');
     if (!response.ok) throw new Error('Guide inputs unavailable');
-    const { catalog, confirmedDraws, guides, date } = await response.json();
+    const data = await response.json();
+    const { catalog, confirmedDraws, guides, date } = data;
     const names = new Map(catalog.map(({ id, name }) => [id, name]));
     const confirmed = new Set(confirmedDraws.filter(draw => draw.drawDate === date).map(draw => draw.lotteryId));
-    readyGuides = guides.filter(guide => guide.drawDate === date && confirmed.has(guide.lotteryId) &&
+    const readyGuides = guides.filter(guide => guide.drawDate === date && confirmed.has(guide.lotteryId) &&
       names.has(guide.lotteryId) && fields.slice(2).every(key => Array.isArray(guide.numbers?.[key])));
-    availableGuides.replaceChildren(new Option('เลือกหวย', ''), ...readyGuides.map((guide, index) =>
-      new Option(names.get(guide.lotteryId), String(index))));
-    $('availableGuidesLabel').hidden = readyGuides.length === 0;
-    guideFeedStatus.textContent = readyGuides.length ? 'เลือกใบแนวเพื่อนำมาใส่ในแบบ' : 'ยังไม่มีใบแนวพร้อมใช้ในช่วงเวลานี้';
+    const drafts = selectStockGuideDrafts(data, confirmed).filter(guide => names.has(guide.lotteryId));
+    guideOptions = [
+      ...readyGuides.map(guide => ({ guide, name: names.get(guide.lotteryId), draft: false })),
+      ...drafts.map(guide => ({ guide, name: names.get(guide.lotteryId), draft: true })),
+    ];
+    availableGuides.replaceChildren(new Option('เลือกหวย', ''), ...guideOptions.map(({ name, draft }, index) =>
+      new Option(name + (draft ? ' · ฉบับร่างจากสูตร' : ' · แนวทางจากแหล่งภายนอก'), String(index))));
+    $('availableGuidesLabel').hidden = guideOptions.length === 0;
+    guideFeedStatus.textContent = guideOptions.length ? 'เลือกใบแนวเพื่อนำมาใส่ในแบบ' : 'ยังไม่มีใบแนวพร้อมใช้ในช่วงเวลานี้';
   } catch {
     guideFeedStatus.textContent = 'โหลดใบแนวอัตโนมัติไม่ได้ ยังสามารถกรอกเลขหรือใช้ผลจากหน้าสูตรได้';
   } finally {
     $('fetchGuides').disabled = false;
   }
 };
+function showGuideSource() {
+  $('importedGuideSource').textContent = selectedGuideSource?.label ?? '';
+}
 availableGuides.onchange = () => {
   if (!availableGuides.value) return;
-  const input = readyGuides[Number(availableGuides.value)];
-  if (!input) return;
+  const option = guideOptions[Number(availableGuides.value)];
+  if (!option) return;
+  const { guide: input, name, draft } = option;
   checkpoint();
-  $('lotteryName').value = availableGuides.selectedOptions[0].textContent;
+  selectedGuideSource = {
+    draft, label: draft ? 'ที่มา · ฉบับร่างจากสูตรของเว็บ' : 'ที่มา · ' + input.sourceUrl,
+  };
+  showGuideSource();
+  $('lotteryName').value = name;
   $('drawDate').value = input.drawDate;
   for (const key of fields.slice(2)) $(key).value = input.numbers[key].join(' ');
   guideFeedStatus.textContent = 'นำเข้าใบแนวแล้ว ตรวจตัวอย่างแล้วกดดาวน์โหลด PNG';

@@ -97,3 +97,18 @@ jobs. Local timestamps are not independently attested.
 Historical sources:
 - https://xn--22c9aba6ftf0bc8d.com/สถิติหวยลาวพัฒนา (first 60 records)
 - https://lottoth.co/lottery/laosdevelops/history (2–4 November cross-reference)
+
+When a supported stock source is unavailable, the studio can import a complete
+formula draft during the usual render window. Drafts keep their label in the
+studio and use a `guide-formula-` PNG filename. The Worker exposes these drafts
+in `entries`; automation still consumes only `guides` and `confirmedDraws`.
+The studio accepts older Worker drafts with six triples and uses the first four
+for the poster slots.
+
+Stock source review on 23 November 2026: [LekLNW](https://leklnw.com/huay-ai-stock/)
+returned HTTP 503. [Leksod's Nikkei morning](https://leksod.com/stocks/nikkei_am/)
+and [afternoon](https://leksod.com/stocks/nikkei_pm/) pages distinguish the rounds
+but exposed draw dates without a verifiable publication time for the picks.
+The [Huaysong China article](https://huaysong.net/huaystock/content/หวยหุ้นจีน-23-11-69)
+also lacked a verifiable pre-close timestamp. These candidates remain outside the
+collector until individual rounds and publication times can be verified.
