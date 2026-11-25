@@ -147,11 +147,9 @@ async function load() {
   if (state.catalog.length) select(state.catalog[0].id);
   if (!state.historyFailed) void loadHistoryCoverage();
 }
-$('search').addEventListener('input',renderList);
-for (const id of ['historyDate','historyLimit']) $(id).addEventListener('change', () => select(state.active));
-
-const views = {home: 'homeView', calculate: 'calculateView', stats: 'statsView', publishers: 'publishersView'};
+for (const id of ['formulaChoice', 'formulaDate', 'formulaLimit']) $(id).addEventListener('change', showIndependentFormula);
 const menus = [...document.querySelectorAll('[data-menu]')];
+const views = {calculate: 'calculateView', publishers: 'publishersView'};
 const names = new Map();
 let publishers = [];
 let archivedResults = [];
