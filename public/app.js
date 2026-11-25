@@ -465,6 +465,51 @@ $('publisherLottery').onchange = () => {
   if (available.length && !available.includes($('publisherDate').value)) $('publisherDate').value = available.sort().at(-1);
   renderPublishers();
 };
+$('autoGenerate').onclick = async () => {
+  const lottery = $('calculateLottery').value;
+  const date = $('formulaDate').value;
+  const lotteryName = state.catalog.find(item => item.id === lottery)?.name;
+  if (!lotteryName) { $('autoStatus').textContent = 'เลือกรายการหวยก่อน'; return; }
+  $('autoGenerate').disabled = true;
+  $('autoStatus').textContent = 'กำลังสร้างใบแนว...';
+  $('autoDownload').hidden = true;
+  try {
+    let details;
+    if ($('autoSource').value === 'formula') {
+      showIndependentFormula();
+      if (!posterDetails) throw new Error('สูตรยังไม่พร้อม');
+      details = posterDetails;
+    } else {
+      const response = await fetch('/api/guide-inputs');
+      if (!response.ok) throw new Error('โหลดใบแนวจาก API ไม่ได้');
+      const data = await response.json();
+      const guide = (data.guides || []).find(item => item.lotteryId === lottery && item.drawDate === date);
+      if (!guide?.numbers) throw new Error('ไม่พบใบแนวสำหรับงวดนี้');
+      const numbers = guide.numbers;
+      details = {
+        lotteryName,
+        drawDate: date,
+        formulaName: guide.draft ? 'ใบแนวร่าง' : 'ใบแนวจากแหล่งข้อมูล',
+        result: {
+          primary: (numbers.standout || []).map(String),
+          pairs: (numbers.twoDigit || []).map(String),
+          triples: (numbers.threeDigit || []).map(String),
+          running: (numbers.running || []).map(String),
+        },
+      };
+    }
+    const blob = await createFormulaPoster({ ...details, lotteryId: lottery, template: posterTemplate.value || 'standard' });
+    const url = URL.createObjectURL(blob);
+    $('autoDownload').href = url;
+    $('autoDownload').download = `guide-auto-${lottery}-${date}.png`;
+    $('autoDownload').hidden = false;
+    $('autoStatus').textContent = 'สร้างใบแนวสำเร็จ กดดาวน์โหลด PNG';
+  } catch (error) {
+    $('autoStatus').textContent = 'สร้างใบแนวไม่ได้: ' + (error?.message || '');
+  } finally {
+    $('autoGenerate').disabled = false;
+  }
+};
 $('trendStatus').textContent = 'กำลังโหลดผลย้อนหลัง';
 load();
 loadPublishers();
