@@ -465,6 +465,21 @@ $('publisherLottery').onchange = () => {
   if (available.length && !available.includes($('publisherDate').value)) $('publisherDate').value = available.sort().at(-1);
   renderPublishers();
 };
+let autoBlob = null;
+$('autoShareLine').onclick = async () => {
+  if (!autoBlob) { $('autoStatus').textContent = 'สร้างใบแนวก่อน'; return; }
+  try {
+    const file = new File([autoBlob], 'guide.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'ใบแนว lottery' });
+    } else {
+      window.open('https://social-plugins.line.me/lineit/share?url=' + encodeURIComponent(location.href), '_blank');
+      $('autoStatus').textContent = 'เบราว์เซอร์นี้ไม่รองรับแชร์ไฟล์ ดาวน์โหลด PNG แล้วส่งใน LINE เอง';
+    }
+  } catch {
+    $('autoStatus').textContent = 'แชร์ไม่ได้';
+  }
+};
 $('autoGenerate').onclick = async () => {
   const lottery = $('calculateLottery').value;
   const date = $('formulaDate').value;
@@ -499,6 +514,8 @@ $('autoGenerate').onclick = async () => {
       };
     }
     const blob = await createFormulaPoster({ ...details, lotteryId: lottery, template: posterTemplate.value || 'standard' });
+    autoBlob = blob;
+    $('autoShareLine').hidden = false;
     const url = URL.createObjectURL(blob);
     $('autoDownload').href = url;
     $('autoDownload').download = `guide-auto-${lottery}-${date}.png`;

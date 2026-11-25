@@ -94,6 +94,21 @@ $('load').onclick = () => {
   }
 };
 try { savedStudio(); } catch { /* Editing remains available without browser storage. */ }
+let lastExportBlob = null;
+$('shareLine').onclick = async () => {
+  if (!lastExportBlob) { $('status').textContent = 'สร้าง PNG ก่อน'; return; }
+  try {
+    const file = new File([lastExportBlob], 'guide.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'ใบแนว lottery' });
+    } else {
+      window.open('https://social-plugins.line.me/lineit/share?url=' + encodeURIComponent(location.href), '_blank');
+      $('status').textContent = 'เบราว์เซอร์นี้ไม่รองรับแชร์ไฟล์ ดาวน์โหลด PNG แล้วส่งใน LINE เอง';
+    }
+  } catch {
+    $('status').textContent = 'แชร์ไม่ได้';
+  }
+};
 $('export').onclick=async()=>{
   const data=guide();
   const numberFields=[['standout',1,2],['twoDigit',2,8],['threeDigit',3,4],['running',1,2]];
@@ -117,6 +132,7 @@ $('export').onclick=async()=>{
     const blob = lockedLotteryId
       ? await createFormulaPoster(lockedPoster(data))
       : await exportGuidePng(document.createElement('canvas'), template, data);
+    lastExportBlob = blob;
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url;
     link.download=`guide-${lockedLotteryId || selectedGuideSource?.draft ? 'formula-' : ''}${data.drawDate}.png`;
