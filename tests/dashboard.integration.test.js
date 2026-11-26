@@ -7,7 +7,7 @@ test('dashboard opens directly and retired login endpoints return 404', { timeou
   const env = { ...process.env, HOST: '127.0.0.1', PORT: '0', POSTHOG_PROJECT_TOKEN: 'test-token' };
   delete env.PROJECT1_PASSWORD;
   delete env.PROJECT1_SESSION_SECRET;
-  const child = spawn(process.execPath, ['server.js'], {
+  const child = spawn(process.argv0, ['server.js'], {
     cwd: new URL('../', import.meta.url),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],

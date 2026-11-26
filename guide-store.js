@@ -55,8 +55,27 @@ export function createGuideStore(directory) {
         } finally {
           await file.close();
         }
-        await link(stage, destination);
-        return 'published';
+        try {
+          await link(stage, destination);
+          return 'published';
+        } catch (linkError) {
+          if (linkError.code !== 'EACCES') throw linkError;
+          // Hard links are not supported on this filesystem: publish directly
+          // to the destination with exclusive creation, then stage is removed.
+          try {
+            const dest = await open(destination, 'wx', 0o600);
+            try {
+              await dest.writeFile(JSON.stringify(record));
+              await dest.sync();
+            } finally {
+              await dest.close();
+            }
+            return 'published';
+          } catch (destError) {
+            if (destError.code === 'EEXIST') return 'already_published';
+            throw destError;
+          }
+        }
       } catch (error) {
         if (error.code === 'EEXIST') return 'already_published';
         throw error;
