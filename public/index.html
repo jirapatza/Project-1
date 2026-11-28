@@ -1,6 +1,8 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project 1 · สูตรและใบแนว lottery</title><link rel="stylesheet" href="/style.css"></head><body class="dashboard"><header><div class="brand"><span class="logo">P1</span><div><strong>PROJECT 1</strong><small>สูตรและใบแนว lottery</small></div></div><div class="header-actions"><span class="read">● READ ONLY</span></div></header><main><nav class="main-nav" aria-label="เมนูหลัก">
 <button type="button" data-menu="calculate" aria-pressed="true">คำนวณรายหวย</button>
 <button type="button" data-menu="publishers" aria-pressed="false">เลขดังรายสำนัก</button>
+<button type="button" data-menu="lines" aria-pressed="false">สายเลขจากผลล่าสุด</button>
+<button type="button" data-menu="formula" aria-pressed="false">สูตรที่สร้างเอง</button>
 <a href="/studio">ทำใบแนว</a>
 </nav>
 <section id="homeView" hidden><div class="intro"><span class="eyebrow">PROJECT 1 · แดชบอร์ดส่วนตัว</span><h1>ภาพรวมรายหวย</h1><p>ดูผลล่าสุดและผลตรวจเลขดังแยกตามรายการหวย</p></div>
@@ -18,6 +20,30 @@
 <p class="note">สูตรเป็นการทดลอง ไม่รับประกันผล สูตรกำลังวันใช้วันงวด ส่วนสูตรอื่นอ่านผลย้อนหลังเฉพาะหวยที่เลือก</p>
 <h2>ตรวจสูตรลาวพัฒนากับผลจริง</h2><p>ทดสอบย้อนหลังจากผล 30 งวดก่อนหน้า แยกจาก Snapshot ก่อนวันออกผล</p>
 <p id="checkSummary" aria-live="polite"></p><div class="scroll" tabindex="0" role="region" aria-label="ตาราง เลื่อนดูข้อมูลเพิ่มเติมได้"><table><thead><tr><th>งวด</th><th>เลขวิ่งล่าง</th><th>ผลล่าง</th><th>วิ่งล่างเข้าไหม</th><th>เลข 3 ตัวที่คำนวณ</th><th>ผล 3 ตัวบน</th><th>3 ตัวตรงเข้าไหม</th></tr></thead><tbody id="checkRows"></tbody></table></div>
+</div></section>
+<section id="linesView" hidden><div class="intro"><h1>สายเลขจากผลล่าสุด</h1><p>สร้างสายเลขหกสายจากผลงวดล่าสุด แล้ววัดผลย้อนหลังกับฐานสุ่ม</p></div><div class="panel">
+<div class="filters"><label>รายการหวย <select id="lineLottery"></select></label><label>ถึงวันงวด <input type="date" id="lineDate"></label><label>ตรวจย้อนหลัง <select id="lineLimit"><option value="20">20 งวด</option><option value="30">30 งวด</option><option value="50">50 งวด</option></select></label></div>
+<p id="lineStatus" aria-live="polite">กำลังโหลดข้อมูล</p>
+<div class="filters"><label>เลขเด่นรูด 19 / ปัก <input id="lineDigit" inputmode="numeric" maxlength="1" placeholder="0–9"></label><label>คู่สายวิน <input id="linePair" inputmode="numeric" maxlength="2" placeholder="12"></label><label>เลขเด่นพิกัด 3 ตัว <input id="lineStandout" inputmode="numeric" maxlength="3" placeholder="127"></label><label>ตำแหน่งปัก <select id="linePosition"><option value="tens">หลักสิบ</option><option value="units">หลักหน่วย</option></select></label></div>
+<div id="lineCards" class="line-cards"></div>
+<h2>ผลทดสอบย้อนหลัง</h2><p id="lineSummary" aria-live="polite"></p>
+<div class="scroll" tabindex="0" role="region" aria-label="ตารางผลทดสอบสายเลข เลื่อนดูข้อมูลเพิ่มเติมได้"><table><thead><tr><th>สาย</th><th>จำนวนเลข</th><th>ตรวจ</th><th>ตรง</th><th>อัตราตรง</th><th>ฐานสุ่ม</th><th>เทียบฐาน</th><th>สรุป</th></tr></thead><tbody id="lineRows"></tbody></table></div>
+<p class="note">สายเลขเป็นการแปลงผลงวดล่าสุดเท่านั้น ไม่ทำนายผลในอนาคต ฐานสุ่มคือโอกาสทฤษฎีของจำนวนเลขในสายเทียบกับเลขสองหลักทั้งหมด 100 หลัก</p>
+</div></section>
+<section id="formulaView" hidden><div class="intro"><h1>สูตรที่สร้างเอง</h1><p>ประกอบสูตรจากตัวเลขคงที่ วันงวด วันเกิด และผลงวดก่อนหน้า แล้ววัดผลย้อนหลังเทียบฐานสุ่ม</p></div><div class="panel">
+<div class="filters"><label>ชื่อสูตร <input id="fName" maxlength="60" placeholder="เช่น บวกลงวดก่อน 3"></label><label>ชนิดผล <select id="fKind"><option value="bottom2">2 ตัวล่าง</option><option value="top3">3 ตัวบน</option></select></label><label>จุดเริ่มต้น <select id="fBase"></select></label><label>ตัวเลขคงที่ <input id="fConst" inputmode="numeric" maxlength="6" value="0"></label></div>
+<h2>ขั้นการคำนวณ</h2><div id="fSteps" class="f-steps"></div>
+<div class="f-actions"><button type="button" id="fAddStep">เพิ่มขั้น</button><button type="button" id="fSave">บันทึกสูตร</button><button type="button" id="fReset">ล้างฟอร์ม</button></div>
+<p id="fStatus" aria-live="polite"></p>
+<h2>สูตรที่บันทึกไว้</h2><div id="fList" class="f-list"></div>
+<h2>แจ้งเตือน</h2><div id="fAlerts" class="f-list"></div>
+<p class="note">การแจ้งเตือนแสดงในหน้านี้เท่านั้น เมื่อผลของงวดล่าสุดตรงหรือใกล้เคียงกับเลขของสูตรที่ติดแจ้งเตือนไว้ ไม่มีการส่งข้อความออกนอกหน้าเว็บ</p>
+<h2>วันเกิดที่ใช้คำนวณ</h2>
+<div class="filters"><label>วัน <input id="fBirthDay" inputmode="numeric" maxlength="2" value="1"></label><label>เดือน <input id="fBirthMonth" inputmode="numeric" maxlength="2" value="1"></label><label>ปี (พ.ศ.) <input id="fBirthYear" inputmode="numeric" maxlength="4" value="2500"></label><button type="button" id="fProfileSave">บันทึกวันเกิด</button></div>
+<h2>คำนวณและทดสอบย้อนหลัง</h2>
+<div class="filters"><label>รายการหวย <select id="fLottery"></select></label><label>ตรวจย้อนหลัง <select id="fLimit"><option value="10">10 งวด</option><option value="20">20 งวด</option><option value="30">30 งวด</option></select></label></div>
+<div id="fResult"></div>
+<p class="note">สูตรที่สร้างเองยังไม่ผ่านการตรวจสอบจากผลจริง เป็นเพียงการแปลงตัวเลขจากงวดก่อนหน้าและวันที่ ไม่ทำนายผลในอนาคต ฐานสุ่มคือโอกาสทฤษฎีของจำนวนเลขในสูตรเทียบกับเลขทั้งหมด 100 หรือ 1000 หลัก</p>
 </div></section>
 <section id="publishersView" hidden><div class="intro"><h1>เลขดังรายสำนัก</h1><p>เทียบเลขจากแต่ละสำนักกับผลจริงในหวยและวันงวดเดียวกัน</p></div><div class="panel">
 <div class="filters"><label>รายการหวย <select id="publisherLottery"></select></label><label>วันงวด <input type="date" id="publisherDate"></label></div>

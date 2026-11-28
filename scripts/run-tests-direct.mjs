@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 // Direct test runner for environments where `node --test` is broken
 // (e.g. Android where process.execPath points to the linker, not node).
-import { readdir, writeFile, mkdir } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 
-const testDir = new URL('../tests/', import.meta.url).pathname;
+// PROJECT1_TEST_DIR lets a test point the runner at a scratch directory.
+const testDir = process.env.PROJECT1_TEST_DIR || new URL('../tests/', import.meta.url).pathname;
 const files = (await readdir(testDir)).filter(f => f.endsWith('.test.js')).sort();
 
-const results = [];
 let totalPass = 0;
 let totalFail = 0;
+let broken = 0;
 
 for (const file of files) {
   const fullPath = join(testDir, file);
@@ -37,10 +38,12 @@ for (const file of files) {
   if (exitCode === 0) {
     console.log(`✔ ${file} (${pass} passed)`);
   } else {
+    // A crash before the TAP summary reports zero failures; it is still a failure.
+    if (fail === 0) broken++;
     console.error(`✖ ${file} (${fail} failed)`);
     if (stderr) console.error(stderr.slice(0, 500));
   }
 }
 
-console.log(`\n${totalPass + totalFail} tests: ${totalPass} passed, ${totalFail} failed`);
-process.exit(totalFail > 0 ? 1 : 0);
+console.log(`\n${totalPass + totalFail} tests: ${totalPass} passed, ${totalFail} failed, ${broken} crashed`);
+process.exit(totalFail > 0 || broken > 0 ? 1 : 0);

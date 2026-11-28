@@ -2,6 +2,8 @@ import { bangkokDate, buildLotteryMatcher, dateKey, isPublishedResult, normalize
 import { formulaOptions, calculateFormula, formulaBacktestReport, resolveFormulaDraws, summarizeFormulaBacktest } from './independent-formulas.js';
 import { createFormulaPoster, formulaPosterTemplates } from './formula-poster.js';
 import { describeHistoryAvailability, describeHistoryFreshness } from './history-availability.js';
+import { backtestLine, buildLine, lineOptions } from './number-lines.js';
+import { createFormulaPanel } from './formula-builder.js';
 const $=id=>document.getElementById(id);
 const state={catalog:[],history:[],active:null,historySource:null,historyFetchedAt:null};
 function indexHistory() {
@@ -149,7 +151,24 @@ async function load() {
 }
 for (const id of ['formulaChoice', 'formulaDate', 'formulaLimit']) $(id).addEventListener('change', showIndependentFormula);
 const menus = [...document.querySelectorAll('[data-menu]')];
-const views = {calculate: 'calculateView', publishers: 'publishersView'};
+const views = {calculate: 'calculateView', publishers: 'publishersView', lines: 'linesView', formula: 'formulaView'};
+let formulaPanel = null;
+function formulaHistory(id) {
+  return (state.byLottery?.get(id) ?? []).map(row => ({
+    date: dateKey(row),
+    top3: typeof row.เลขบน_3_ตัว === 'string' && /^\d{3}$/.test(row.เลขบน_3_ตัว) ? row.เลขบน_3_ตัว : '',
+    bottom2: twoDigits(row.เลขล่าง_2_ตัว) || (id === 'thai_gov' ? twoDigits(row.เลขท้าย_2_ตัว) : '') || '',
+  })).filter(row => row.date);
+}
+function openFormulaView() {
+  const select = $('fLottery');
+  if (!formulaPanel) {
+    select.replaceChildren(...state.catalog.map(item => new Option(item.name, item.id)));
+    if (state.catalog.length) select.selectedIndex = 0;
+    formulaPanel = createFormulaPanel({ root: $('formulaView'), historyFor: formulaHistory });
+  }
+  formulaPanel.render();
+}
 const names = new Map();
 let publishers = [];
 let archivedResults = [];
@@ -158,7 +177,7 @@ let publisherReady = false;
 function setupCatalog() {
   $('homeCount').textContent = state.catalog.length;
   for (const lottery of state.catalog) names.set(lottery.id, lottery.name);
-  for (const id of ['calculateLottery', 'publisherLottery']) {
+  for (const id of ['calculateLottery', 'publisherLottery', 'lineLottery']) {
     const current = $(id).value;
     $(id).replaceChildren(...state.catalog.map(item => new Option(item.name, item.id)));
     $(id).value = names.has(current) ? current : 'lao_patthana';
@@ -185,6 +204,7 @@ function setupCatalog() {
   $('trendStatus').textContent = [trendMessage, describeHistoryFreshness(state.historySource, state.historyFetchedAt)].filter(Boolean).join(' · ');
   renderPublishers();
   if (!$('calculateView').hidden) { showCalculation(); showIndependentFormula(); }
+  if (!$('formulaView').hidden && formulaPanel) formulaPanel.render();
 }
 
 function resultFor(id, date) {
@@ -262,6 +282,81 @@ function renderPublishers() {
     tr.insertCell().append(link);
     return tr;
   }));
+}
+function lineDraws(lottery, cutoff) {
+  if (!lottery || !state.byLottery?.has(lottery)) return [];
+  const rows = [];
+  for (const row of uniqueDraws(lottery, cutoff)) {
+    if (!row) continue;
+    const top3 = typeof row.เลขบน_3_ตัว === 'string' && /^\d{3}$/.test(row.เลขบน_3_ตัว) ? row.เลขบน_3_ตัว : '';
+    const bottom2 = twoDigits(row.เลขล่าง_2_ตัว) || (lottery === 'thai_gov' ? twoDigits(row.เลขท้าย_2_ตัว) : '') || '';
+    if (top3 && bottom2) rows.push({date: dateKey(row), top3, bottom2});
+  }
+  return rows;
+}
+function linePicks(latest) {
+  return {
+    digit: $('lineDigit').value.trim() || undefined,
+    pair: $('linePair').value.trim() || undefined,
+    standout: $('lineStandout').value.trim() || latest.top3,
+    position: $('linePosition').value,
+  };
+}
+function renderLines() {
+  const lottery = $('lineLottery').value;
+  const draws = lineDraws(lottery, $('lineDate').value);
+  $('lineCards').replaceChildren();
+  $('lineRows').replaceChildren();
+  $('lineSummary').textContent = '';
+  if (!lottery) {
+    $('lineStatus').textContent = state.catalogFailed ? 'โหลดทะเบียนหวยไม่สำเร็จ' : 'กำลังโหลดรายการหวย';
+    return;
+  }
+  if (!draws.length) {
+    $('lineStatus').textContent = 'ยังไม่มีผลย้อนหลังที่สร้างสายเลขได้ในช่วงที่เลือก';
+    return;
+  }
+  const latest = draws[0];
+  const limit = Number($('lineLimit').value);
+  const picks = linePicks(latest);
+  const source = state.historyFailed ? 'โหลดผลย้อนหลังไม่สำเร็จ'
+    : describeHistoryFreshness(state.historySource, state.historyFetchedAt);
+  $('lineStatus').textContent = `ผลล่าสุด ${latest.date} · 3 ตัวบน ${latest.top3} · 2 ตัวล่าง ${latest.bottom2} · `
+    + `ใช้ย้อนหลัง ${draws.length} งวด${source ? ' · ' + source : ''}`;
+  const cards = [];
+  const rows = [];
+  let clear = 0;
+  let checked = 0;
+  for (const option of lineOptions) {
+    const line = buildLine(option.id, latest, picks);
+    const card = document.createElement('article');
+    card.className = 'line-card';
+    const heading = document.createElement('h3');
+    heading.textContent = option.name;
+    const rule = document.createElement('p');
+    rule.textContent = line.error ?? line.rule;
+    const numbers = document.createElement('p');
+    numbers.className = 'line-numbers';
+    numbers.textContent = line.error ? '—' : line.numbers.join(' ');
+    card.append(heading, rule, numbers);
+    cards.push(card);
+    const report = backtestLine(option.id, draws, picks, limit);
+    if (report.error) {
+      rows.push(tableRow([option.name, '—', '—', '—', '—', '—', '—', report.error]));
+      continue;
+    }
+    checked++;
+    if (Math.abs(report.z) < 2) clear++;
+    rows.push(tableRow([
+      option.name, String(report.size), String(report.trials), String(report.hits),
+      (report.hitRate * 100).toFixed(1) + '%', (report.baseline * 100).toFixed(1) + '%',
+      report.lift.toFixed(2) + '×', report.verdict,
+    ]));
+  }
+  $('lineCards').append(...cards);
+  $('lineRows').append(...rows);
+  $('lineSummary').textContent = `ตรวจได้ ${checked}/${lineOptions.length} สาย · `
+    + `ต่างจากฐานสุ่มไม่ชัดเจน ${clear} สาย · เทียบกับเลขสองหลักทั้งหมด 100 หลัก`;
 }
 async function loadPublishers() {
   try {
@@ -456,15 +551,20 @@ for (const button of menus) button.onclick = () => {
   for (const [key, id] of Object.entries(views)) $(id).hidden = key !== menu;
   if (menu === 'calculate') { showCalculation(); showIndependentFormula(); }
   if (menu === 'publishers') renderPublishers();
+  if (menu === 'lines') renderLines();
+  if (menu === 'formula') openFormulaView();
   fetch('/api/usage', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({menu})}).catch(() => {});
 };
 $('calculateLottery').onchange = () => { showCalculation(); showIndependentFormula(); };
 $('publisherDate').onchange = renderPublishers;
-$('publisherLottery').onchange = () => {
-  const available = publishers.filter(row => row.lottery === $('publisherLottery').value).map(row => row.date);
-  if (available.length && !available.includes($('publisherDate').value)) $('publisherDate').value = available.sort().at(-1);
-  renderPublishers();
-};
+  $('publisherLottery').onchange = () => {
+    const available = publishers.filter(row => row.lottery === $('publisherLottery').value).map(row => row.date);
+    if (available.length && !available.includes($('publisherDate').value)) $('publisherDate').value = available.sort().at(-1);
+    renderPublishers();
+  };
+  for (const id of ['lineLottery', 'lineDate', 'lineLimit', 'lineDigit', 'linePair', 'lineStandout', 'linePosition']) {
+    $(id).onchange = renderLines;
+  }
 let autoBlob = null;
 $('autoShareLine').onclick = async () => {
   if (!autoBlob) { $('autoStatus').textContent = 'สร้างใบแนวก่อน'; return; }

@@ -123,3 +123,22 @@
   border-radius: 8px;
   font-weight: 700;
 }
+
+/* Formula builder */
+.dashboard .f-steps { display: grid; gap: 8px; margin-bottom: 12px; }
+.dashboard .f-step { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) 90px auto; gap: 8px; align-items: center; }
+.dashboard .f-step input[hidden] { display: none; }
+.dashboard .f-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 18px; }
+.dashboard .f-actions button { border: 1px solid var(--line); background: #f5e9d6; color: var(--wine); border-radius: 8px; padding: 11px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+.dashboard .f-actions .f-danger { background: #fff; color: #8d3c46; }
+.dashboard .f-list { display: grid; gap: 10px; margin-bottom: 22px; }
+.dashboard .f-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: #fffdf8; }
+.dashboard .f-card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dashboard .f-card-head label { font-size: 13px; font-weight: 600; }
+.dashboard .f-card-head input { width: auto; }
+.dashboard .f-card .note { margin: 8px 0 0; }
+.dashboard .f-step select, .dashboard .f-step input { min-height: 44px; }
+@media (max-width: 600px) {
+  .dashboard .f-step { grid-template-columns: 1fr 1fr; }
+  .dashboard .f-step .f-drop { grid-column: 1 / -1; }
+}
